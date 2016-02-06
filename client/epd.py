@@ -16,7 +16,7 @@ class EPD(object):
 
     DEFAULT_SLOT=0 # always the *oldest*, should wear-level then I think
 
-    def __init__(self, debug=False):
+    def __init__(self, debug=False, baud=100000):
         # From datasheet
         # Bit rate – up to 12 MHz1
         # ▪ Polarity – CPOL = 1; clock transition high-to-low on the leading edge and low-to-high on the
@@ -25,7 +25,7 @@ class EPD(object):
         # ▪ Bit order – MSB first
         # ▪ Chip select polarity – active low
         self.spi = SPI(0)
-        self.spi.init(mode=SPI.MASTER, baudrate=250000, bits=8,
+        self.spi.init(mode=SPI.MASTER, baudrate=baud, bits=8,
                       polarity=1, phase=1, firstbit=SPI.MSB,
                       pins=('GP31', 'GP16', 'GP30')) # CLK, MOSI, MISO
 
@@ -97,24 +97,25 @@ class EPD(object):
         return result_bytes[:-2]
 
     @staticmethod
-    def calculate_checksum(data):
+    def calculate_checksum(data, skip=16):
         """
         Initial checksum value is 0x6363
 
-        uint16_t crc16_add(uint8_t byte, uint16_t acc)
-        {
-            acc ^= byte;
-            acc = (acc >> 8) | (acc << 8);
-            acc ^= (acc & 0xff00) << 4;
-            acc ^= (acc >> 8) >> 4;
-            acc ^= (acc & 0xff00) >> 5;
-            acc = acc;
-            return acc;
-        }
         :param data:
+        :param skip: Skip some data as slices are expensive
         :return:
         """
-        raise RuntimeError("Not implemented checksums")
+        acc = 0x6363
+        for byte in data:
+            if skip > 0:
+                skip -= 1
+            else:
+                acc ^= byte
+                acc = ((acc >> 8) | (acc << 8)) & 0xffff
+                acc ^= ((acc & 0xff00) << 4) & 0xffff
+                acc ^= (acc >> 8) >> 4
+                acc ^= (acc & 0xff00) >> 5
+        return acc
 
     def get_sensor_data(self):
         # GetSensorData
@@ -132,7 +133,6 @@ class EPD(object):
         return self.send_command(0x31, 2, 1, expected=0x10)
 
     def display_update(self, slot=0):
-        # TODO 5.7.2.1 implies we need to send a data length of 0.  rly?
         self.send_command(0x24, 1, slot)
 
     def reset_data_pointer(self):
@@ -149,14 +149,25 @@ class EPD(object):
     def upload_image_data(self, data, slot=0):
         self.send_command(0x20, 1, slot, data)
 
-    def upload_whole_image(self, img, slot=0):
-        # Chop up chunks and send it
+    def upload_whole_image(self, img, slot=0, delay_us=500):
+        """
+        Chop up chunks and send it
+        :param img: Image to send in EPD format
+        :param slot: Slot framebuffer number to use
+        :param delay_us: Delay between packets? 450us and the Tbusy line never comes back
+        :return:
+        """
         total = len(img)
         idx = 0
-        while idx < total - 250:
-            chunk = img[idx:idx+250]
-            self.upload_image_data(chunk, slot)
-            del chunk
-            idx += 250
-            time.sleep_us(1)
-        self.upload_image_data(img[idx:], slot)
+        try:
+            while idx < total - 250:
+                chunk = img[idx:idx+250]
+                self.upload_image_data(chunk, slot)
+                del chunk
+                idx += 250
+                time.sleep_us(delay_us)
+            self.upload_image_data(img[idx:], slot)
+        except KeyboardInterrupt:
+            print("Stopped at user request at position: %d (%d)" % (idx, (idx // 250)))
+        except ValueError as e:
+            print("Stopped at position: %d (%d) - %s" % (idx, (idx // 250), e))
