@@ -15,19 +15,32 @@ def save_config(cfg):
     """
     sd = SD()
     os.mount(sd, '/sd')
-    url = ""
-    wifi_ap = ""
-    wifi_key= ""
+
     with open("/sd/config.txt", "w") as cfgfile:
-        cfgfile.write("URL:%s\n", cfg.url)
+        cfgfile.write("Host:%s\n", cfg.host)
         cfgfile.write("WiFi:%s\n", cfg.wifi_ssid)
         cfgfile.write("Pass:%s\n", cfg.wifi_key)
+        cfgfile.write("Port:%s\n", cfg.port)
+        cfgfile.write("Image:%s\n", cfg.image_path)
+        cfgfile.write("Meta:%s\n", cfg.metadata_path)
+        if cfg.upload_path:
+            cfgfile.write("Up:%s\n", cfg.upload_path)
     os.unmount(sd)
     sd.deinit()
-    del sd
 
 
 def load_file(path):
     with open(path, "rb") as f:
         return f.read()
 
+
+def print_log(path='/sd/display.log'):
+    sd = SD()
+    os.mount(sd, '/sd')
+
+    with open(path, 'r') as logfile:
+        for line in logfile:
+            print(line)
+
+    os.unmount(sd)
+    sd.deinit()

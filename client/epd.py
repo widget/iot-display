@@ -5,6 +5,7 @@ import machine
 from machine import SPI, Pin
 from binascii import hexlify
 
+
 class EPD(object):
     MAX_READ = 45
     SW_NORMAL_PROCESSING = 0x9000
@@ -132,8 +133,11 @@ class EPD(object):
     def get_system_version_code(self):
         return self.send_command(0x31, 2, 1, expected=0x10)
 
-    def display_update(self, slot=0):
-        self.send_command(0x24, 1, slot)
+    def display_update(self, slot=0, flash=False):
+        cmd = 0x86
+        if flash:
+            cmd = 0x24
+        self.send_command(cmd, 1, slot)
 
     def reset_data_pointer(self):
         self.send_command(0x20, 0xd, 0)
@@ -146,10 +150,11 @@ class EPD(object):
         (cksum,) = struct.unpack(">H", cksum_val)
         return cksum
 
-    def upload_image_data(self, data, slot=0):
+    def upload_image_data(self, data, slot=0, delay_us=500):
         self.send_command(0x20, 1, slot, data)
+        time.sleep_us(delay_us)
 
-    def upload_whole_image(self, img, slot=0, delay_us=500):
+    def upload_whole_image(self, img, slot=0):
         """
         Chop up chunks and send it
         :param img: Image to send in EPD format
@@ -165,7 +170,6 @@ class EPD(object):
                 self.upload_image_data(chunk, slot)
                 del chunk
                 idx += 250
-                time.sleep_us(delay_us)
             self.upload_image_data(img[idx:], slot)
         except KeyboardInterrupt:
             print("Stopped at user request at position: %d (%d)" % (idx, (idx // 250)))
