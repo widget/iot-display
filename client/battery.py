@@ -40,7 +40,7 @@ class Battery(object):
         Battery percentage
         :return: 0-100
         """
-        val = self.battery_raw() - Battery.MINIMUM // Battery.PERCENT
+        val = (self.battery_raw() - Battery.MINIMUM) // Battery.PERCENT
         if val > 100:
             val = 100
         return val

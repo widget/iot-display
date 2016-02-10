@@ -27,7 +27,7 @@ def update_loop(url, interval=0, port=80):
 
         c = Connect(host, port, debug=True)
 
-        content = c.get(path)
+        content = c.get_quick(path)
 
         print("Uploading...", end='')
         e.upload_whole_image(content)

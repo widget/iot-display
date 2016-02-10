@@ -15,6 +15,7 @@ User-Agent: Widget-IoTDisplay/1.0
 """
 
     def __init__(self, host, port=80, debug=False):
+        self.keep_alive = False
         self.host = host
         self.socket = socket.socket()
         self.address = socket.getaddrinfo(host, port)[0][4]
@@ -60,14 +61,11 @@ User-Agent: Widget-IoTDisplay/1.0
             self.socket.send(req)
 
         self.socket.send(content.encode())
-        content_type, header_line, in_headers, keep_alive, length = self.parse_headers()
+        content_type, header_line, in_headers, length = self.parse_headers()
 
-        if not keep_alive:
-            if self.debug:
-                print("No keep-alive, closing socket")
-            self.socket.close()
+        self._close_keep_alive()
 
-    def get(self, path, path_type='octet-stream', max_length=16384):
+    def get_quick(self, path, path_type='octet-stream', max_length=16384):
         """
         HTTP request, like normal things.  Sets the date in last_fetch_time.  Will attempt
         to keep-alive.
@@ -77,11 +75,42 @@ User-Agent: Widget-IoTDisplay/1.0
         :return: The content (no headers)
         """
 
+        length = self._do_get(max_length, path, path_type)
+        # Force gc before we do some big allocs
+        gc.collect()
+
+        # Keep getting until we've got what we were promised
+        content = b''
+        while len(content) < length:
+            content += self.socket.recv(length - len(content))
+
+        self._close_keep_alive()
+        return content
+
+    def get_object(self, path, path_type='octet-stream', max_length=16384):
+        """
+        HTTP request for big things.  Sets the date in last_fetch_time.  Will attempt
+        to keep-alive.  Returns the socket (file like object) for things to sip
+        data from.  Needs cleaning when done
+        :param path: Path on the website to pull
+        :param path_type: Content-Type (substring match)
+        :param max_length: Maximum Content-Length to accept
+        :return: The content (no headers)
+        """
+
+        length = self._do_get(max_length, path, path_type)
+        # Force gc before we do some big allocs
+        gc.collect()
+
+        return length, self.socket
+
+    def get_object_done(self):
+        self._close_keep_alive()
+
+    def _do_get(self, max_length, path, path_type):
         req = Connect.REQ.format(host=self.host, path=path, method='GET')
         req += 'Accept-Encoding: identity\n\n'
-
         req = req.encode()
-
         try:
             self.socket.send(req)
         except OSError:
@@ -90,14 +119,10 @@ User-Agent: Widget-IoTDisplay/1.0
             self.socket = socket.socket()
             self.socket.connect(self.address)
             self.socket.send(req)
-
-        content_type, header_line, in_headers, keep_alive, length = self.parse_headers()
+        content_type, header_line, in_headers, length = self.parse_headers()
         # Cleanup before the (potentially mahoosive fetch)
         del header_line
         del in_headers
-        # Force gc after our mess above
-        gc.collect()
-
         content = None
         if length > max_length:
             self.socket.close()
@@ -107,14 +132,14 @@ User-Agent: Widget-IoTDisplay/1.0
         if length == 0:
             raise ValueError("Not sure how big the payload is")
 
-        content = self.socket.recv(length)
+        return length
 
-        if not keep_alive:
+    def _close_keep_alive(self):
+        if not self.keep_alive:
             if self.debug:
                 print("No keep-alive, closing socket")
             self.socket.close()
             self.socket = socket.socket()
-        return content
 
     def parse_headers(self):
         try:
@@ -128,7 +153,6 @@ User-Agent: Widget-IoTDisplay/1.0
         length = 0
         content_type = ""
         self.last_fetch_time = (0, 0, 0, 0, 0, 0)
-        keep_alive = False
         in_headers = True
         while in_headers:
             # Parse each line in turn, we'll check the current date and
@@ -150,6 +174,6 @@ User-Agent: Widget-IoTDisplay/1.0
                 # No more headers
                 in_headers = False
             elif "keep-alive" in header_line.lower():
-                keep_alive = True
+                self.keep_alive = True
 
-        return content_type, header_line, in_headers, keep_alive, length
+        return content_type, header_line, in_headers, length

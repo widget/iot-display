@@ -31,7 +31,7 @@ class EPD(object):
                       pins=('GP31', 'GP16', 'GP30')) # CLK, MOSI, MISO
 
         # These are all active low!
-        self.tc_en_bar = Pin('GP4', mode=Pin.OPEN_DRAIN) # TODO might be OUT
+        self.tc_en_bar = Pin('GP4', mode=Pin.OUT)
 
         self.disable()
 
@@ -133,7 +133,7 @@ class EPD(object):
     def get_system_version_code(self):
         return self.send_command(0x31, 2, 1, expected=0x10)
 
-    def display_update(self, slot=0, flash=False):
+    def display_update(self, slot=0, flash=True):
         cmd = 0x86
         if flash:
             cmd = 0x24
@@ -150,7 +150,7 @@ class EPD(object):
         (cksum,) = struct.unpack(">H", cksum_val)
         return cksum
 
-    def upload_image_data(self, data, slot=0, delay_us=500):
+    def upload_image_data(self, data, slot=0, delay_us=1000):
         self.send_command(0x20, 1, slot, data)
         time.sleep_us(delay_us)
 
