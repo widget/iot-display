@@ -107,6 +107,10 @@ class Display(object):
         self.log("Setting alarm for " + time_str)
         self.rtc.alarm(time=tuple(list_int))
 
+        if self.rtc.alarm_left() == 0:
+            self.log("Alarm failed, setting for +1 hour")
+            self.rtc.alarm(time=3600000)
+
         del json
 
     def display_file_image(self, file_obj):
