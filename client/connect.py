@@ -147,6 +147,9 @@ User-Agent: Widget-IoTDisplay/1.0
         except OSError:
             raise RuntimeError("Couldn't connect to server")
 
+        if self.debug:
+            print(header_line, end='')  # EOL in string already\
+
         # First line better be "HTTP/1.0 200 OK"
         if "200 OK" not in header_line:
             raise RuntimeError("Can't handle server response: " + header_line)
@@ -158,8 +161,6 @@ User-Agent: Widget-IoTDisplay/1.0
             # Parse each line in turn, we'll check the current date and
             # how much data is coming, and its type
             header_line = self.socket.readline().decode()
-            if self.debug:
-                print(header_line, end='')  # EOL in string already
 
             arg = header_line.split(':')[-1].strip()
             if "date" in header_line.lower():
@@ -175,5 +176,8 @@ User-Agent: Widget-IoTDisplay/1.0
                 in_headers = False
             elif "keep-alive" in header_line.lower():
                 self.keep_alive = True
+
+            if self.debug and in_headers:
+                print(header_line, end='')  # EOL in string already
 
         return content_type, header_line, in_headers, length
