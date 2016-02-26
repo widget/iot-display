@@ -1,18 +1,15 @@
 import math
 from PIL import Image, ImageDraw, ImageFont
-import PIL.ImageOps
 
 from epd_generator import EPDGenerator
-
 from datetime import date, datetime, timedelta
-
 from ephem_tools import EphemerisHandler
 
 
 class DisplayRenderer(object):
     RES = (400, 300)
 
-    def __init__(self, tide1, tide2=None):
+    def __init__(self, tide1, tide2=None, battery=-1, location=(0,0), weather=None):
         # Work in greyscale, and we can dither to monochrome
         self.surface = Image.new("L", DisplayRenderer.RES, 255)
         # TODO Find bitmap fonts
@@ -20,20 +17,21 @@ class DisplayRenderer(object):
         self.small_font = ImageFont.truetype('Ubuntu-R.ttf', 14)
         self.moon_font  = ImageFont.truetype('./moon_phases.ttf', 42)
 
-        self.ephem = EphemerisHandler((51.85, 1.28))
+        self.ephem = EphemerisHandler(location)
 
         self.surface_bw = None
         self.draw = ImageDraw.Draw(self.surface)
 
-        self.tide1_time = "%02d:%02d" % (tide1[0].hour, tide1[0].minute)
-        self.tide1_type = tide1[1].upper()
-        self.tide1_height = tide1[2]
+        self.tide1_time = "%02d:%02d" % (tide1.time.hour, tide1.time.minute)
+        self.tide1_type = tide1.type.upper()
+        self.tide1_height = tide1.height
 
-        self.battery_charge = 100
+        self.battery_charge = battery
+        self.weather = weather
         if tide2:
-            self.tide2_time = "%02d:%02d" % (tide2[0].hour, tide2[0].minute)
-            self.tide2_type = tide2[1].upper()
-            self.tide2_height = tide2[2]
+            self.tide2_time = "%02d:%02d" % (tide2.time.hour, tide2.time.minute)
+            self.tide2_type = tide2.type.upper()
+            self.tide2_height = tide2.height
         else:
             self.tide2_time = None
 
@@ -48,34 +46,53 @@ class DisplayRenderer(object):
 
         self.draw_clock((20, 50), (240, 265), self.tide1_time)
 
-        self.draw_centre_text((120, 290), "Height: %.2fm" % self.tide1_height, self.small_font)
+        self.draw_centre_text((120, 290), "Tide height: %.2fm" % self.tide1_height, self.small_font)
 
         if self.tide2_time:
-            msg = "%s tide -\n\nTime: %s\nHeight: %.2fm" % (self.tide2_type, self.tide2_time, self.tide2_height)
+            msg = "Next tide -\n   %s\nTime: %s\nHeight: %.2fm" % (self.tide2_type,
+                                                                   self.tide2_time,
+                                                                   self.tide2_height)
         else:
             msg = "Next tide\n tomorrow"
-        self.draw.multiline_text((270,10), msg, font=self.small_font, align="left", spacing=5)
+        self.draw.multiline_text((270,10), msg, font=self.small_font, align="left")
 
-        msg = "Sunrise: %s\nSunset: %s" % (self.ephem.calculate_sunrise().strftime("%H:%M"),
-                                           self.ephem.calculate_sunset().strftime("%H:%M"))
+        # Print daylight hours
+        msg = "Daylight:\n%s\n%s" % (self.ephem.calculate_sunrise().strftime("%H:%M"),
+                                     self.ephem.calculate_sunset().strftime("%H:%M"))
+        self.draw.multiline_text((270, 220), msg, font=self.small_font, align="left", spacing=5)
 
-        self.draw.multiline_text((270, 180), msg, font=self.small_font, align="left", spacing=5)
-
-        self.draw.text((270, 230), self.ephem.calculate_moon_phase(), font=self.moon_font)
+        # Draw moon (which is a font here)
+        self.draw.text((345, 225), self.ephem.calculate_moon_phase(), font=self.moon_font)
 
         # Battery icon and percentage
-
-        pos = (340, 235)
-        self.draw.rectangle(((pos[0], pos[1]+5), (pos[0]+5, pos[1]+10)), outline=0)
-        self.draw.rectangle(((pos[0]+5, pos[1]), (pos[0]+35, pos[1]+15)), outline=0)
-        self.draw.text((pos[0], pos[1]+20), "%02d%%" % self.battery_charge, font=self.small_font)
+        if self.battery_charge > -1:
+            self.draw_battery((210, 280))
 
         # Date this ran on
         msg = "%s" % datetime.now().strftime("%a, %d %b %Y")
-        self.draw.text((270, 280), msg, font=self.small_font)
+        size = self.draw.textsize(msg, font=self.small_font)
+        self.draw.text((DisplayRenderer.RES[0]-(8+size[0]), 280), msg, font=self.small_font)
 
-        pos = (265, 100)
-        self.draw_wind(pos, (pos[0]+60, pos[1]+60), "13", 270)
+        if self.weather:
+            wind_dir = self.weather.get_wind_direction()
+            pos = (265, 100)
+            if wind_dir < 180:
+                pos = (250, 100)
+            self.draw_wind(pos, (pos[0]+60, pos[1]+60),
+                           "%d" % int(self.weather.get_wind_speed()),
+                           wind_dir)
+            msg = "Land: %.1f°C\n Sea: %.1f°C" % (self.weather.get_temperature(), self.weather.get_sea_temp())
+            self.draw.multiline_text((317, 100), msg, font=self.small_font)
+
+    def draw_battery(self, pos):
+        self.draw.rectangle(((pos[0] + 2, pos[1] + 5), (pos[0] + 5, pos[1] + 10)), outline=0)
+        self.draw.rectangle(((pos[0] + 5, pos[1]), (pos[0] + 35, pos[1] + 15)), outline=0)
+        inner_width = int(26.0 * self.battery_charge / 100)
+        self.draw.rectangle(((pos[0] + 33 - inner_width, pos[1] + 2), (pos[0] + 33, pos[1] + 13)), outline=0, fill=0)
+        if self.battery_charge < 10:
+            self.draw.line((pos, (pos[0] + 38, pos[1] + 18)), width=2, fill=128)
+            self.draw.line(((pos[0] + 38, pos[1]), (pos[0], pos[1] + 18)), width=2, fill=128)
+        # self.draw.text((pos[0] + 5, pos[1] + 20), "%02d%%" % self.battery_charge, font=self.small_font)
 
     def draw_wind(self, tl, br, speed, angle):
         size = (br[0] - tl[0], br[1] - tl[1])
@@ -124,8 +141,6 @@ class DisplayRenderer(object):
             hour -= 12
         minute = float(minute)/60
         hour = (float(hour) + minute)/12
-
-        # self.draw.ellipse((tl, br), fill=None, outline=0)
 
         # Face
         for i in range(12):

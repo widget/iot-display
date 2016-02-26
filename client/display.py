@@ -249,6 +249,8 @@ class Display(object):
         #no_update = True
         #while error_count < 3 and no_update:
         #    try:
+        sleep_ms(1000) # How do we make the write to display more reliable?
+        self.feed_wdt()
         self.log("Uploading to display")
         self.display_file_image(socket)
         c.get_object_done()
