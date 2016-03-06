@@ -20,11 +20,34 @@ class Config(object):
     @staticmethod
     def load(debug=False, sd=None):
         # Load off SD our AP, pw, and URL details
-        unmount = False
-        if sd is None:
-            sd = SD()
-            os.mount(sd, '/sd')
-            unmount = True
+        cfg = None
+        try:
+            unmount = False
+            if sd is None:
+                sd = SD()
+                os.mount(sd, '/sd')
+                unmount = True
+
+            cfg = Config.load_file("/sd/config.txt", debug)
+
+            if unmount:
+                os.unmount('/sd')
+                sd.deinit()
+                del sd
+        except OSError:
+            print("Can't open SD card")
+
+        if not cfg:
+            cfg = Config.load_file("/flash/data/config.txt", debug)
+            if not cfg:
+                raise ValueError("No config file!")
+            print("Loaded from flash")
+        else:
+            print("Loaded from SD card")
+        return cfg
+
+    @staticmethod
+    def load_file(path, debug=False):
         host = ""
         wifi_ap = ""
         wifi_key= ""
@@ -32,7 +55,7 @@ class Config(object):
         image = ""
         meta = ""
         upload = ""
-        with open("/sd/config.txt", "r") as cfgfile:
+        with open(path, "r") as cfgfile:
             for line in cfgfile:
                 line = line.strip()
                 if debug:
@@ -56,12 +79,7 @@ class Config(object):
                     if debug:
                         print("Can't process line")
 
-        if unmount:
-            os.unmount('/sd')
-            sd.deinit()
-            del sd
-
         if host and wifi_ap and wifi_key and image and meta:
             return Config(host, image, meta, upload, wifi_ap, wifi_key, port)
         else:
-            raise ValueError("No config")
+            return None

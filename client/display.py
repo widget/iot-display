@@ -52,6 +52,11 @@ class Display(object):
 
         self.epd = EPD()
 
+        self.log("Time left on the alarm: %dms" % self.rtc.alarm_left())
+
+        self.wakeup_pin = Pin("GP24", mode=Pin.IN, pull=Pin.PULL_DOWN)
+        self.wakeup_pin.irq(trigger=Pin.IRQ_RISING, wake=DEEPSLEEP)
+
         # Don't flash when we're awake outside of debug
         heartbeat(self.debug)
 
@@ -69,16 +74,16 @@ class Display(object):
     def connect_wifi(self):
         from network import WLAN
 
+        if not self.cfg:
+            raise ValueError("Can't initialise wifi, no config")
+
         self.log('Starting WLAN, attempting to connect to ' + self.cfg.wifi_ssid)
         wlan = WLAN(0, WLAN.STA)
         wlan.ifconfig(config='dhcp')
         wlan.connect(ssid=self.cfg.wifi_ssid, auth=(WLAN.WPA2, self.cfg.wifi_key))
         while not wlan.isconnected():
             idle()
-        self.log('Connected')
-
-        # TODO check this
-        # del WLAN
+        self.log('Connected as %s' % wlan.ifconfig()[0])
 
     @staticmethod
     def reset_cause():
@@ -167,6 +172,8 @@ class Display(object):
 
     def run(self):
 
+        woken = self.wakeup_pin()
+
         battery = Battery()
 
         self.epd.enable()
@@ -187,16 +194,22 @@ class Display(object):
             sleep_ms(15000)
             return
 
+        if self.rtc.alarm_left() > 0:
+            self.log("Woken up but the timer is still running, refreshing screen only")
+            self.epd.display_update()
+            self.feed_wdt()
+            return
+
         try:
-            if self.sd:
-                self.cfg = Config.load(sd=self.sd)
-                self.log("Loaded config")
-            else:
-                raise ValueError("SD card not present")
+            self.cfg = Config.load(sd=self.sd)
+            self.log("Loaded config")
         except (OSError, ValueError) as e:
             self.log("Failed to load config: " + str(e))
             self.display_no_config()
-            self.connect_wifi()
+            try:
+                self.connect_wifi()
+            except:
+                pass # everything
 
             while True:
                 sleep_ms(10)
@@ -213,13 +226,17 @@ class Display(object):
 
             self.feed_wdt()
 
-            self.log("Reset cause: " + Display.reset_cause())
+            cause = Display.reset_cause()
+            if woken:
+                cause = "user"
+
+            self.log("Reset cause: " + cause)
 
             if len(self.cfg.upload_path) > 0:
                 temp = self.epd.get_sensor_data() # we read this already
                 c.post(self.cfg.upload_path,
                        battery=battery.value(),
-                       reset=Display.reset_cause(),
+                       reset=cause,
                        screen=temp)
 
             self.log("Fetching metadata from " + self.cfg.metadata_path)
@@ -245,28 +262,10 @@ class Display(object):
             self.rtc.alarm(time=3600000)
             return
 
-        #error_count = 0
-        #no_update = True
-        #while error_count < 3 and no_update:
-        #    try:
         sleep_ms(1000) # How do we make the write to display more reliable?
         self.feed_wdt()
         self.log("Uploading to display")
         self.display_file_image(socket)
-        c.get_object_done()
-        #        no_update = False
-
-        #    except ValueError as e:
-        #        self.epd.disable()
-        #        self.log("Failed to update display " + str(e))
-        #        error_count += 1
-        #        sleep_ms(50)
-        #        self.epd.enable()
-
-        #if no_update:
-        #    self.epd.disable()
-        #    self.rtc.alarm(time=60000)
-        #    self.log("Giving up on setting display")
-        #    return
+        c.get_object_done() # close off socket
 
         self.log("Finished. Mem free: %d" % gc.mem_free())
