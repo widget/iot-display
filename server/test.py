@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 
-# TODO needs config file
-
 import argparse
 import configparser
 import datetime
@@ -191,13 +189,11 @@ elif len(future_tides) == 1:
     wake_up_time = future_tides[0].time
 else:
     # For the sake of something to show we show this morning's, as next morning
-    # TODO add a fudge factor of about 40m here?  Means repacking the tuple, and dealing with wrap at midnight
     d = DisplayRenderer(tides_downloaded[0], battery=battery, location=location, weather=weather)
 
 # Remove microseconds
 wake_up_time = wake_up_time.replace(microsecond=0)
 
-# TODO save tides
 tides_node.clear()
 
 for tide in tides_downloaded:

@@ -34,7 +34,7 @@ if (array_key_exists("battery", $_POST) &&
 
     if ($log_entries->length >= $MAX_ENTRIES)
     {
-        $doc->removeChild($log_entries->item(0));
+        $client->removeChild($log_entries->item(0));
     }
 
     $new_entry = $doc->createElement("log");

@@ -9,6 +9,9 @@ from tide import Tide
 
 URL="http://www.tidetimes.org.uk"
 
+# TODO unmangle govt output instead that has 5-day support
+# http://www.ukho.gov.uk/easytide/EasyTide/ShowPrediction.aspx?PortID=0129&PredictionLength=3&DaylightSavingOffset=0&PrinterFriendly=True&HeightUnits=0&GraphSize=10
+
 
 class TideParser(object):
     """

@@ -12,10 +12,11 @@ class DisplayRenderer(object):
     def __init__(self, tide1, tide2=None, battery=-1, location=(0,0), weather=None):
         # Work in greyscale, and we can dither to monochrome
         self.surface = Image.new("L", DisplayRenderer.RES, 255)
-        # TODO Find bitmap fonts
-        self.large_font = ImageFont.truetype('Ubuntu-R.ttf', 30)
-        self.small_font = ImageFont.truetype('Ubuntu-R.ttf', 14)
-        self.moon_font  = ImageFont.truetype('./moon_phases.ttf', 42)
+        self.large_font = ImageFont.load('./ubuntu-big.pil')
+        self.small_font = ImageFont.load('./ubuntu-small.pil')
+
+        # This doesn't convert to a bitmap sadly
+        self.moon_font = ImageFont.truetype('./moon_phases.ttf', 42)
 
         self.ephem = EphemerisHandler(location)
 
@@ -34,13 +35,14 @@ class DisplayRenderer(object):
             self.tide2_height = tide2.height
         else:
             self.tide2_time = None
+            self.tide2_type = "LOW" if self.tide1_type == "HIGH" else "HIGH"
 
     def _gen_bw(self):
         self.surface_bw = self.surface.convert('1')
 
     def render(self):
 
-        self.draw_centre_text((120, 15), "%s tide" % self.tide1_type, self.large_font)
+        self.draw_centre_text((120, 15), "Next %s tide" % self.tide1_type, self.large_font)
 
         self.draw.line((255, 50, 255,250), fill=0)
 
@@ -49,20 +51,20 @@ class DisplayRenderer(object):
         self.draw_centre_text((120, 290), "Tide height: %.2fm" % self.tide1_height, self.small_font)
 
         if self.tide2_time:
-            msg = "Next tide -\n   %s\nTime: %s\nHeight: %.2fm" % (self.tide2_type,
-                                                                   self.tide2_time,
-                                                                   self.tide2_height)
+            msg = "Next %s tide -\nTime: %s\nHeight: %.2fm" % (self.tide2_type,
+                                                               self.tide2_time,
+                                                               self.tide2_height)
         else:
-            msg = "Next tide\n tomorrow"
+            msg = "Next %s tide\n tomorrow" % self.tide2_type
         self.draw.multiline_text((270,10), msg, font=self.small_font, align="left")
 
         # Print daylight hours
         msg = "Daylight:\n%s\n%s" % (self.ephem.calculate_sunrise().strftime("%H:%M"),
                                      self.ephem.calculate_sunset().strftime("%H:%M"))
-        self.draw.multiline_text((270, 220), msg, font=self.small_font, align="left", spacing=5)
+        self.draw.multiline_text((270, 215), msg, font=self.small_font, align="left", spacing=5)
 
         # Draw moon (which is a font here)
-        self.draw.text((345, 225), self.ephem.calculate_moon_phase(), font=self.moon_font)
+        self.draw.text((341, 228), self.ephem.calculate_moon_phase(), font=self.moon_font)
 
         # Battery icon and percentage
         if self.battery_charge > -1:
