@@ -22,7 +22,7 @@ def update_loop(url, interval=0, port=80):
     path = url[sep:]
 
     del sep
-    while True:# TODO WDT reqd
+    while True:
         print("Mem free: %d" % gc.mem_free())
 
         c = Connect(host, port, debug=True)

@@ -6,7 +6,6 @@ import gc
 
 class Connect(object):
 
-    # TODO Authorization (sic)? Would only manage Basic unless we do an OAuth trick
     # Using HTTP/1.0 with keep-alive as 1.1 can't refuse chunking (unlikely though it is)
     REQ = """{method} {path} HTTP/1.0
 Host: {host}

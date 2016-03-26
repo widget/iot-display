@@ -16,9 +16,8 @@ class Battery(object):
     Minimum voltage is 3.2V
     """
     MINIMUM = 2990 # 3.2 * 0.32 / 1.4 * 4096 (ltr, cba with brackets)
-    # CHARGED = 3560 # Using 3.8V atm, should it be 4.2V?
-    CHARGED = 3930 # 4.2V ish
-    PERCENT = 9 # 900 Range
+    CHARGED = 3560 # Using 3.8V atm
+    PERCENT = 6 # 900 Range
 
     def __init__(self):
         self.adc = ADC()

@@ -37,8 +37,15 @@ class Display(object):
         self.rtc = RTC()
         self.debug = debug
 
+        # use this pin for debug
+        self.wifi_pin = Pin("GP24", mode=Pin.IN, pull=Pin.PULL_UP)
+
+        # Empty WDT object
+        self.wdt = None
+
         if not debug:
-            self.wdt = WDT(timeout=20000)
+            if not self.wifi_pin():
+                self.wdt = WDT(timeout=20000)
             self.sd = None
         else:
             from machine import SD
@@ -54,9 +61,6 @@ class Display(object):
 
         self.log("Time left on the alarm: %dms" % self.rtc.alarm_left())
 
-        self.wakeup_pin = Pin("GP24", mode=Pin.IN, pull=Pin.PULL_DOWN)
-        self.wakeup_pin.irq(trigger=Pin.IRQ_RISING, wake=DEEPSLEEP)
-
         # Don't flash when we're awake outside of debug
         heartbeat(self.debug)
 
@@ -68,7 +72,7 @@ class Display(object):
         print(msg, end=end)
 
     def feed_wdt(self):
-        if not self.debug:
+        if self.wdt:
             self.wdt.feed()
 
     def connect_wifi(self):
@@ -124,7 +128,7 @@ class Display(object):
         while towrite > 0:
             c = max_chunk if towrite > max_chunk else towrite
             buff = file_obj.read(c)
-            self.epd.upload_image_data(buff, delay_us=1000)
+            self.epd.upload_image_data(buff, delay_us=2000)
             self.feed_wdt()
             towrite -= c
 
@@ -161,18 +165,24 @@ class Display(object):
         # Close files on the SD card
         if self.sd:
             self.logfile.close()
+            self.logfile = None
             unmount('/sd')
             self.sd.deinit()
 
         # Turn the screen off
         self.epd.disable()
 
-        # Basically turn off
-        deepsleep()
+        if not self.wifi_pin():
+            # Basically turn off
+            deepsleep()
+        else:
+            self.log("DEBUG MODE: Staying awake")
+            pass
+            # Do nothing, allow network connections in
 
     def run(self):
 
-        woken = self.wakeup_pin()
+        woken = self.wifi_pin()
 
         battery = Battery()
 
@@ -247,7 +257,8 @@ class Display(object):
             del metadata
             del battery
             self.log("Fetching image from " + self.cfg.image_path)
-            gc.collect()
+            self.epd.image_erase_frame_buffer()
+            self.feed_wdt()
 
             length, socket = c.get_object(self.cfg.image_path)
 
@@ -267,5 +278,11 @@ class Display(object):
         self.log("Uploading to display")
         self.display_file_image(socket)
         c.get_object_done() # close off socket
+
+        if self.cfg.src == "sd":
+            # If we've got a working config from SD instead of flash
+            self.log("Transferring working config")
+            Config.transfer()
+            self.log("SUCCESS")
 
         self.log("Finished. Mem free: %d" % gc.mem_free())

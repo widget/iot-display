@@ -8,6 +8,9 @@ class Config(object):
     Simple tuple for holding configuration data - also a namespace
     for mounting the SD and loading the data off it
     """
+    FLASH_CONFIG_PATH = "/flash/data/config.txt"
+    SD_CONFIG_PATH = "/sd/config.txt"
+
     def __init__(self, host, image, meta, upload, ap, key, port=80):
         self.host = host
         self.port = port
@@ -19,7 +22,12 @@ class Config(object):
 
     @staticmethod
     def load(debug=False, sd=None):
-        # Load off SD our AP, pw, and URL details
+        """
+         Load off SD our AP, pw, and URL details
+        :param debug: Logging
+        :param sd: SD object if mounted already
+        :return: Config object
+        """
         cfg = None
         try:
             unmount = False
@@ -28,7 +36,7 @@ class Config(object):
                 os.mount(sd, '/sd')
                 unmount = True
 
-            cfg = Config.load_file("/sd/config.txt", debug)
+            cfg = Config.load_file(Config.SD_CONFIG_PATH, debug)
 
             if unmount:
                 os.unmount('/sd')
@@ -38,12 +46,14 @@ class Config(object):
             print("Can't open SD card")
 
         if not cfg:
-            cfg = Config.load_file("/flash/data/config.txt", debug)
+            cfg = Config.load_file(Config.FLASH_CONFIG_PATH, debug)
             if not cfg:
                 raise ValueError("No config file!")
             print("Loaded from flash")
+            cfg.src = "flash"
         else:
             print("Loaded from SD card")
+            cfg.src = "sd"
         return cfg
 
     @staticmethod
@@ -83,3 +93,18 @@ class Config(object):
             return Config(host, image, meta, upload, wifi_ap, wifi_key, port)
         else:
             return None
+
+    @staticmethod
+    def transfer():
+        """
+        Transfer an (assumed good) config file from SD to flash.
+
+        Also assumes SD card is mounted
+        :return: No return
+        """
+        with open(Config.SD_CONFIG_PATH, "r") as src:
+            with open(Config.FLASH_CONFIG_PATH, "w") as dst:
+                for line in src:
+                    dst.write(line)
+
+        os.remove(Config.SD_CONFIG_PATH)
