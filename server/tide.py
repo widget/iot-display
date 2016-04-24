@@ -4,15 +4,16 @@ import xml.etree.ElementTree as ET
 
 class Tide(object):
     def __init__(self, tide_time, tide_type, height):
-        self.time = tide_time
+        self.time = tide_time # In GMT
         self.type = tide_type
         self.height = height
 
     def to_xml(self):
         top = ET.Element("tide")
-        top.attrib["time"] = self.time.isoformat()
+        # Discarding TZ info on save as strptime imports tz in a different format
+        top.attrib["time"] = self.time.strftime("%Y-%m-%dT%H:%M:%S")
         top.attrib["type"] = self.type
-        top.attrib["height"] = "%.2f" % self.height
+        top.attrib["height"] = "%.1f" % self.height
 
         return top
 

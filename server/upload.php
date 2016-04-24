@@ -3,7 +3,7 @@
 $DATA_LOC = "server.xml";
 $ROOT_NODE = "display";
 $CLIENT_NODE = "client";
-$MAX_ENTRIES = 100;
+$MAX_ENTRIES = 1000;
 
 if (array_key_exists("battery", $_POST) &&
     array_key_exists("reset", $_POST) &&

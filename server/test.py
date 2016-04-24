@@ -5,6 +5,7 @@ import configparser
 import datetime
 import json
 import os.path
+import pytz
 import sys
 
 import xml.etree.ElementTree as ET
@@ -29,6 +30,9 @@ CLIENT_METADATA = "metadata.json"
 SERVER_METADATA = "server.xml"
 OUTPUT_EPD = "data.bin"
 OUTPUT_PNG = "data.png"
+
+london = pytz.timezone("Europe/London")
+gmt = pytz.timezone("GMT")
 
 parser = argparse.ArgumentParser(description="Generate new files")
 parser.add_argument('-d', '--dir', default='.')
@@ -66,8 +70,9 @@ else:
         current = datetime.datetime.combine(datetime.date.today(),
                                             current.time())
         print("Hard-coding time to %s" % current)
+current = london.localize(current)
 
-day_start = datetime.datetime.combine(current.today(), datetime.time(0))
+day_start = london.localize(datetime.datetime.combine(current.today(), datetime.time(0)))
 
 metadata = ET.ElementTree(ET.Element("display"))
 if os.path.exists(server_metadata_path):
@@ -88,7 +93,7 @@ default_time = True
 next_wake = None
 try:
     if "time" in wakeup_node.attrib:
-        next_wake = datetime.datetime.strptime(wakeup_node.attrib["time"], "%Y-%m-%dT%H:%M:%S")
+        next_wake = london.localize(datetime.datetime.strptime(wakeup_node.attrib["time"], "%Y-%m-%dT%H:%M:%S"))
         default_time = False
 except ValueError:
     print("Failed to read date from wakeup node: '%s'" % wakeup_node.attrib["time"])
@@ -105,7 +110,7 @@ if not tides_node:
 
 loaded_tides = []
 for node in metadata.findall('./server/tides/tide'):
-    t = Tide(datetime.datetime.strptime(node.attrib["time"], "%Y-%m-%dT%H:%M:%S"),
+    t = Tide(gmt.localize(datetime.datetime.strptime(node.attrib["time"], "%Y-%m-%dT%H:%M:%S")),
              node.attrib["type"],
              float(node.attrib["height"]))
     loaded_tides.append(t)
@@ -126,7 +131,7 @@ if not args.force:
 
 valid_tides = [tide for tide in loaded_tides if tide.time > day_start]
 
-if len(valid_tides) == 0:
+if len(valid_tides) < 7:
     try:
         if args.verbose:
             print("Fetching new tides")
@@ -135,8 +140,6 @@ if len(valid_tides) == 0:
         feed_loc = config["Tides"]["Feed"]
         if not feed_loc:
             raise ValueError("No feed configuration, can't fetch tides")
-        if feed_loc[0] != '/':
-            feed_loc = '/' + feed_loc
         t = TideParser(feed_loc)
         tides_downloaded = t.fetch(args.verbose)
     except ConnectionError:
@@ -152,6 +155,10 @@ if args.verbose:
     print("Tide times:")
     for t in tides_downloaded:
         print(t)
+
+if len(tides_downloaded) == 0:
+    # TODO handle error
+    pass
 
 future_tides = [tide for tide in tides_downloaded if tide.time > current]
 today_tides = [tide for tide in tides_downloaded if tide.time > day_start]
@@ -173,23 +180,20 @@ except configparser.NoOptionError as e:
 except Exception as e:
     print("Failed to get weather information: ")
     print(e.__doc__)
-    print(e.message)
+    print(e)
     weather = None
 
 d = None
-if len(today_tides) == 0:
-    # RSS feed is not correct for today, come back soon
-    wake_up_time = current + SLACK # this will be doubled effectively
-elif len(future_tides) >= 2:
+if len(future_tides) >= 2:
     # Otherwise wakeup when we need to change the clock
-    wake_up_time = future_tides[0].time
-    d = DisplayRenderer(future_tides[0], future_tides[1], battery=battery, location=location, weather=weather)
+    wake_up_time = future_tides[0].time.astimezone(london)
+    d = DisplayRenderer(future_tides[0], future_tides[1], battery=battery, location=location, weather=weather, tz=london)
 elif len(future_tides) == 1:
-    d = DisplayRenderer(future_tides[0], battery=battery, location=location, weather=weather)
-    wake_up_time = future_tides[0].time
+    d = DisplayRenderer(future_tides[0], battery=battery, location=location, weather=weather, tz=london)
+    wake_up_time = future_tides[0].time.astimezone(london)
 else:
     # For the sake of something to show we show this morning's, as next morning
-    d = DisplayRenderer(tides_downloaded[0], battery=battery, location=location, weather=weather)
+    d = DisplayRenderer(today_tides[0], battery=battery, location=location, weather=weather)
 
 # Remove microseconds
 wake_up_time = wake_up_time.replace(microsecond=0)
@@ -199,13 +203,15 @@ tides_node.clear()
 for tide in tides_downloaded:
     tides_node.append(tide.to_xml())
 
-wakeup_node.attrib["time"] = wake_up_time.isoformat()
+# isoformat puts out tz info in the wrong format to be able to bloody load it again.
+wakeup_node.attrib["time"] = wake_up_time.isoformat().split('+')[0]
 metadata.write(server_metadata_path, xml_declaration=True)
 
 wake_up_time += SLACK
 
-# We'll only get log messages dated when we did it and when the next one should be
-print("Next client wakeup is %s" % wake_up_time)
+if args.verbose:
+    # We'll only get log messages dated when we did it and when the next one should be
+    print("Next client wakeup is %s" % wake_up_time)
 
 client_metadata = {"wakeup": wake_up_time.timetuple()}
 
@@ -219,7 +225,5 @@ if d:
     e = EPDGenerator(d.surface_bw)
     e.save(output_epd_path)
 
-    if args.verbose:
-        print("Checksum is 0x%x" % e.checksum())
 else:
     print("Skipping render, no RSS data")

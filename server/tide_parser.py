@@ -3,41 +3,38 @@ import datetime
 import re
 from tempfile import NamedTemporaryFile
 
+import pytz
 from bs4 import BeautifulSoup
 import requests
 from tide import Tide
 
-URL="http://www.tidetimes.org.uk"
-
-# TODO unmangle govt output instead that has 5-day support
-# http://www.ukho.gov.uk/easytide/EasyTide/ShowPrediction.aspx?PortID=0129&PredictionLength=3&DaylightSavingOffset=0&PrinterFriendly=True&HeightUnits=0&GraphSize=10
-
 
 class TideParser(object):
     """
-    Parses the tidetimes RSS feed to something less crap.  BeautifulSoup4 is depending on
+    Parses the UKHO RSS feed to something less crap.  BeautifulSoup4 is depending on
     LXML as RSS is XML, but the HTML in the RSS needs extracting.
 
     No errors are handled yet, Requests could return ConnectionError or Timeout
 
-    The format of an entry is:
+    Location ID is pulled manually from the EasyTide system
 
-    <description>&lt;a href=&quot;https://www.tidetimes.org.uk&quot; title=&quot;tide times&quot;&gt;Tide Times&lt;/a&gt; &amp; Heights for &lt;a href=&quot;https://www.tidetimes.org.uk/walton-on-the-naze-tide-times&quot; title=&quot;Walton-on-the-Naze tide times&quot;&gt;Walton-on-the-Naze&lt;/a&gt; on 30th January 2016&lt;br/&gt;&lt;br/&gt;03:10 - High Tide &#x28;3.96m&#x29;&lt;br/&gt;09:16 - Low Tide &#x28;0.56m&#x29;&lt;br/&gt;15:33 - High Tide &#x28;3.76m&#x29;&lt;br/&gt;21:18 - Low Tide &#x28;0.96m&#x29;&lt;br/&gt;</description>
     """
 
-    def __init__(self, url):
-        self.tidematch = re.compile(r"""(?P<time>[0-2][0-9]:[0-5][0-9])
-                                        \W+-\W+
-                                        (?P<type>High|Low)\ Tide\W+
-                                        \((?P<height>-*\d+.\d+)m\)""",
-                                    re.VERBOSE)
-        self.xml_time_fmt = "%a, %d %b %Y %H:%M:%S %Z"
+    def __init__(self, location_id):
 
-        self.url = URL + url
+        self.url = "http://www.ukho.gov.uk/easytide/EasyTide/ShowPrediction.aspx"
+
+        self.params = {"PortID": location_id,
+                       "PredictionLength": "3",
+                       "DaylightSavingOffset": "0",
+                       "PrinterFriendly": "true",
+                       "HeightUnits": "0",
+                       "GraphSize": "10"
+                       }
 
     def fetch(self, debug=False):
         sess = requests.Session()
-        rsp = sess.get(self.url)
+        rsp = sess.get(self.url,params=self.params)
 
         if rsp.status_code == requests.codes.ok:
             if debug:
@@ -45,24 +42,33 @@ class TideParser(object):
                     tmp.write(rsp.content)
                     print("Content written to " + tmp.name)
 
-            feed_doc = BeautifulSoup(rsp.content, "xml")
+            feed_doc = BeautifulSoup(rsp.content)
 
-            updated_str = feed_doc.channel.lastBuildDate.text
-            updated = datetime.datetime.strptime(updated_str, self.xml_time_fmt)
-
-            latest = feed_doc.channel.item.description.text
-            latest_time = datetime.datetime.strptime(feed_doc.channel.item.pubDate.text, self.xml_time_fmt)
+            table_list = feed_doc.find_all("table", "HWLWTable")
+            year = str(datetime.datetime.now().year)
+            SILLY_FORMAT = "%Y, %a %d %b %H:%M"
 
             ret = []
 
-            # Split on br tags and drop the title and empty line
-            for tide_time in self.tidematch.finditer(latest):
-                vals = tide_time.groupdict()
-                time = datetime.time(*[int(x) for x in vals["time"].split(':')])
-                ttype = vals["type"]
-                height = float(vals["height"])
+            for table in table_list:
+                table_date = table.find('th', 'HWLWTableHeaderCell').text
+                tide_types = [x.text.strip() for x in table.find_all('th', 'HWLWTableHWLWCellPrintFriendly')]
+                times_heights = [x.text.strip() for x in table.find_all('td')]
 
-                ret.append(Tide(datetime.datetime.combine(latest_time.date(), time), ttype, height))
+                midlen = len(times_heights) >> 1
+                tide_times = times_heights[0:midlen]
+                heights = [float(h[:-2]) for h in times_heights[midlen:]]
+                types = ["Low" if x == "LW" else "High" for x in tide_types]
+                times = []
+                for time in tide_times:
+                    times.append(datetime.datetime.strptime(year + ", " + table_date + " " + time, SILLY_FORMAT))
+
+                # Set to GMT, although when it's saved out, this is lost
+                gmt = pytz.timezone("GMT")
+                times = [gmt.localize(t) for t in times]
+
+                for tide_tuple in zip(times, types, heights):
+                    ret.append(Tide(*tide_tuple))
 
             return ret
 

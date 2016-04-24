@@ -9,32 +9,41 @@ from ephem_tools import EphemerisHandler
 class DisplayRenderer(object):
     RES = (400, 300)
 
-    def __init__(self, tide1, tide2=None, battery=-1, location=(0,0), weather=None):
+    def __init__(self, tide1, tide2=None, battery=-1, location=(0,0), weather=None, tz=None):
         # Work in greyscale, and we can dither to monochrome
         self.surface = Image.new("L", DisplayRenderer.RES, 255)
-        self.large_font = ImageFont.load('./ubuntu-big.pil')
-        self.small_font = ImageFont.load('./ubuntu-small.pil')
+        self.large_font = ImageFont.load('fonts/ubuntu-big.pil')
+        self.small_font = ImageFont.load('fonts/ubuntu-small.pil')
 
         # This doesn't convert to a bitmap sadly
-        self.moon_font = ImageFont.truetype('./moon_phases.ttf', 42)
+        self.moon_font = ImageFont.truetype('fonts/moon_phases.ttf', 42)
 
         self.ephem = EphemerisHandler(location)
 
         self.surface_bw = None
         self.draw = ImageDraw.Draw(self.surface)
 
-        self.tide1_time = "%02d:%02d" % (tide1.time.hour, tide1.time.minute)
+        if tz:
+            # Cast to localtime (with pytz)
+            time1 = tide1.time.astimezone(tz)
+            time2 = tide2.time.astimezone(tz)
+        else:
+            time1 = tide1.time
+            time2 = tide2.time
+
+        self.tide1_time = "%02d:%02d" % (time1.hour, time1.minute)
         self.tide1_type = tide1.type.upper()
         self.tide1_height = tide1.height
 
         self.battery_charge = battery
         self.weather = weather
         if tide2:
-            self.tide2_time = "%02d:%02d" % (tide2.time.hour, tide2.time.minute)
+            self.tide2_time = "%02d:%02d" % (time2.hour, time2.minute)
             self.tide2_type = tide2.type.upper()
             self.tide2_height = tide2.height
         else:
             self.tide2_time = None
+            # Assumes we don't get two HIGHs in a row which can happen in some places
             self.tide2_type = "LOW" if self.tide1_type == "HIGH" else "HIGH"
 
     def _gen_bw(self):
@@ -42,21 +51,23 @@ class DisplayRenderer(object):
 
     def render(self):
 
-        self.draw_centre_text((120, 15), "Next %s tide" % self.tide1_type, self.large_font)
+        self.draw_centre_text((130, 19), "Next %s tide" % self.tide1_type, self.large_font)
 
         self.draw.line((255, 50, 255,250), fill=0)
+        self.draw.line((290, 80, 370, 80), fill=0)
+        self.draw.line((290, 210, 370, 210), fill=0)
 
         self.draw_clock((20, 50), (240, 265), self.tide1_time)
 
-        self.draw_centre_text((120, 290), "Tide height: %.2fm" % self.tide1_height, self.small_font)
+        self.draw_centre_text((120, 290), "Tide height: %.1fm" % self.tide1_height, self.small_font)
 
         if self.tide2_time:
-            msg = "Next %s tide -\nTime: %s\nHeight: %.2fm" % (self.tide2_type,
+            msg = "Next %s tide -\n  Time: %s\n  Height: %.1fm" % (self.tide2_type,
                                                                self.tide2_time,
                                                                self.tide2_height)
         else:
             msg = "Next %s tide\n tomorrow" % self.tide2_type
-        self.draw.multiline_text((270,10), msg, font=self.small_font, align="left")
+        self.draw.multiline_text((270, 10), msg, font=self.small_font, align="left")
 
         # Print daylight hours
         msg = "Daylight:\n%s\n%s" % (self.ephem.calculate_sunrise().strftime("%H:%M"),
@@ -76,17 +87,30 @@ class DisplayRenderer(object):
         self.draw.text((DisplayRenderer.RES[0]-(8+size[0]), 280), msg, font=self.small_font)
 
         if self.weather:
-            wind_dir = self.weather.get_wind_direction()
+
+            # Wind direction as reported is where it's blowing FROM of course
+            wind_dir = (self.weather.get_wind_direction()+180) % 360
             pos = (265, 100)
+
             if wind_dir < 180:
+                # Jiggle the centre based on direction so we take up less space
                 pos = (250, 100)
             self.draw_wind(pos, (pos[0]+60, pos[1]+60),
                            "%d" % int(self.weather.get_wind_speed()),
                            wind_dir)
-            msg = "Land: %.1f°C\n Sea: %.1f°C" % (self.weather.get_temperature(), self.weather.get_sea_temp())
+
+            msg = "Land: %.1f°C\n Sea: %.1f°C" % (self.weather.get_temperature(),
+                                                  self.weather.get_sea_temp())
             self.draw.multiline_text((317, 100), msg, font=self.small_font)
 
+            msg = "Waves: %.1fm" % self.weather.get_wave_height()
+            self.draw.multiline_text((270, 170), msg, font=self.small_font)
+
     def draw_battery(self, pos):
+        """
+        Draw a picture of a battery at the given position and fill it up from right to left
+        based on the charge in self.battery_charge
+        """
         self.draw.rectangle(((pos[0] + 2, pos[1] + 5), (pos[0] + 5, pos[1] + 10)), outline=0)
         self.draw.rectangle(((pos[0] + 5, pos[1]), (pos[0] + 35, pos[1] + 15)), outline=0)
         inner_width = int(26.0 * self.battery_charge / 100)
@@ -94,7 +118,6 @@ class DisplayRenderer(object):
         if self.battery_charge < 10:
             self.draw.line((pos, (pos[0] + 38, pos[1] + 18)), width=2, fill=128)
             self.draw.line(((pos[0] + 38, pos[1]), (pos[0], pos[1] + 18)), width=2, fill=128)
-        # self.draw.text((pos[0] + 5, pos[1] + 20), "%02d%%" % self.battery_charge, font=self.small_font)
 
     def draw_wind(self, tl, br, speed, angle):
         size = (br[0] - tl[0], br[1] - tl[1])
@@ -133,9 +156,12 @@ class DisplayRenderer(object):
         return x, y
 
     def draw_clock(self, tl, br, time):
+        """
+        Draw a clockface in the square from top-left to bottom-right, and mark hands to
+        show a time based on a HH:MM string.
+        """
 
         size = (br[0] - tl[0], br[1] - tl[1])
-        centre = (tl[0] + size[0]/2, tl[1] + size[1]/2)
         hour, minute = time.split(':')
         hour = int(hour)
         minute = int(minute)
@@ -177,7 +203,8 @@ class DisplayRenderer(object):
 
 
 if __name__ == "__main__":
-    d = DisplayRenderer((datetime.now(), "high", 3.33), (datetime.now()+timedelta(hours=6), "low", -0.33))
+    from tide import Tide
+    d = DisplayRenderer(Tide(datetime.now(), "high", 3.33), (datetime.now()+timedelta(hours=6), "low", -0.33))
     d.render()
     d.save("data.png")
 
