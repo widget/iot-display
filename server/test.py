@@ -223,12 +223,21 @@ for tide in tides_downloaded:
     tides_node.append(tide.to_xml())
 
 # isoformat puts out tz info in the wrong format to be able to bloody load it again.
-wakeup_node.attrib["time"] = wake_up_time.isoformat().split('+')[0]
-metadata.write(server_metadata_path, xml_declaration=True)
+wut = wake_up_time.isoformat().split('+')[0]
+wakeup_node.attrib["time"] = wut
+client_node = metadata.find('./client')
+
 
 wake_up_time += SLACK
 # OVERRIDE TO TWO HOURS (localtime)
 # wake_up_time = current + datetime.timedelta(hours=2)
+
+if client_node:
+    #if not metadata.findall("requested[@time='%s'" % wut):
+    wakeup_log = ET.SubElement(client_node, "requested")
+    wakeup_log.attrib["time"] = wut
+
+metadata.write(server_metadata_path, xml_declaration=True)
 
 if args.verbose:
     # We'll only get log messages dated when we did it and when the next one should be
