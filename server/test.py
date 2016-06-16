@@ -17,6 +17,25 @@ from tide_parser import TideParser
 from weather import Weather
 
 
+def generate_status_page(metadata, wake_up_time):
+    try:
+        with open("status.html", "w") as statusfile:
+            statusfile.write("<html><head>Current status</head><body>")
+            statusfile.write("<p>Next wakeup due at %s</p>" % wake_up_time.isoformat())
+
+            statusfile.write("<p>Last events:</p><ol>")
+
+            events = metadata.findall('./client/log')
+
+            for e in events[:-6:-1]:  # iterate back over the last five
+                statusfile.write("""<li>{time}: {reason} - {battery}%</li>""".format(time=e.attrib["time"],
+                                                                                     reason=e.attrib["reset"],
+                                                                                     battery=e.attrib["battery"]))
+            statusfile.write("</ol></body></html>")
+    except (IOError, KeyError):
+        pass
+
+
 class DateTimeEncoder(json.JSONEncoder):
     def default(self, o):
         if isinstance(o, datetime.datetime):
@@ -186,11 +205,11 @@ except Exception as e:
 d = None
 if len(future_tides) >= 2:
     # Otherwise wakeup when we need to change the clock
-    wake_up_time = future_tides[0].time.astimezone(london)
+    wake_up_time = future_tides[0].time # GMT! not astimezone(london)
     d = DisplayRenderer(future_tides[0], future_tides[1], battery=battery, location=location, weather=weather, tz=london)
 elif len(future_tides) == 1:
     d = DisplayRenderer(future_tides[0], battery=battery, location=location, weather=weather, tz=london)
-    wake_up_time = future_tides[0].time.astimezone(london)
+    wake_up_time = future_tides[0].time # GMT! not astimezone(london)
 else:
     # For the sake of something to show we show this morning's, as next morning
     d = DisplayRenderer(today_tides[0], battery=battery, location=location, weather=weather)
@@ -208,6 +227,8 @@ wakeup_node.attrib["time"] = wake_up_time.isoformat().split('+')[0]
 metadata.write(server_metadata_path, xml_declaration=True)
 
 wake_up_time += SLACK
+# OVERRIDE TO TWO HOURS (localtime)
+# wake_up_time = current + datetime.timedelta(hours=2)
 
 if args.verbose:
     # We'll only get log messages dated when we did it and when the next one should be
@@ -227,3 +248,5 @@ if d:
 
 else:
     print("Skipping render, no RSS data")
+
+generate_status_page(metadata, wake_up_time)
