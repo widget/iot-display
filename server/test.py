@@ -222,20 +222,23 @@ tides_node.clear()
 for tide in tides_downloaded:
     tides_node.append(tide.to_xml())
 
-# isoformat puts out tz info in the wrong format to be able to bloody load it again.
-wut = wake_up_time.isoformat().split('+')[0]
-wakeup_node.attrib["time"] = wut
-client_node = metadata.find('./client')
-
+# Now the time for the client to wakeup
 
 wake_up_time += SLACK
 # OVERRIDE TO TWO HOURS (localtime)
 # wake_up_time = current + datetime.timedelta(hours=2)
 
+# isoformat puts out tz info in the wrong format to be able to bloody load it again
+wut = wake_up_time.isoformat().split('+')[0]
+wakeup_node.attrib["time"] = wut
+
+# Save this in the log, so we can compare
+client_node = metadata.find('./client')
+
 if client_node:
-    #if not metadata.findall("requested[@time='%s'" % wut):
-    wakeup_log = ET.SubElement(client_node, "requested")
-    wakeup_log.attrib["time"] = wut
+    if not metadata.findall("./client/requested[@time='%s'" % wut):
+        wakeup_log = ET.SubElement(client_node, "requested")
+        wakeup_log.attrib["time"] = wut
 
 metadata.write(server_metadata_path, xml_declaration=True)
 
@@ -248,6 +251,7 @@ client_metadata = {"wakeup": wake_up_time.timetuple()}
 with open(client_metadata_path, "w") as meta_out:
     json.dump(client_metadata, meta_out)
 
+# Actually save the pic
 if d:
     d.render()
     d.save(output_png_path)
