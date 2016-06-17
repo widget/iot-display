@@ -251,6 +251,8 @@ class Display(object):
 
             self.log("Fetching metadata from " + self.cfg.metadata_path)
             metadata = c.get_quick(self.cfg.metadata_path, max_length=1024, path_type='json')
+
+            # This will set the time to GMT, not localtime
             self.set_alarm(c.last_fetch_time, metadata)
 
             self.feed_wdt()
