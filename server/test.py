@@ -236,7 +236,7 @@ wakeup_node.attrib["time"] = wut
 client_node = metadata.find('./client')
 
 if client_node:
-    if not metadata.findall("./client/requested[@time='%s'" % wut):
+    if not metadata.findall("./client/requested[@time='%s']" % wut):
         wakeup_log = ET.SubElement(client_node, "requested")
         wakeup_log.attrib["time"] = wut
 
