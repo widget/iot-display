@@ -1,5 +1,3 @@
-from datetime import datetime
-
 import requests
 import xml.etree.ElementTree as ET
 
@@ -29,9 +27,9 @@ class Weather(object):
         self.land = None
         self.api_key = key
 
-    def fetch_land_observ(self, id):
+    def fetch_land_observ(self, weather_id):
         # walton forecast id 354073
-        # http://datapoint.metoffice.gov.uk/public/data/val/wxfcs/all/xml/354073?res=3hourly&key=481ae315-17a8-4704-849a-25ada43f4327
+        # http://datapoint.metoffice.gov.uk/public/data/val/wxfcs/all/xml/354073?res=3hourly&key=xxx
 
         # <SiteRep>
         # <Wx>
@@ -62,8 +60,14 @@ class Weather(object):
             "res": "3hourly",
             "key": self.api_key
         }
-        rsp = sess.get("http://datapoint.metoffice.gov.uk/public/data/val/wxfcs/all/xml/%s" % id, params=opts)
+        rsp = sess.get("http://datapoint.metoffice.gov.uk/public/data/val/wxfcs/all/xml/%s" % weather_id, params=opts)
+
+        if rsp.status_code != 200:
+            raise RuntimeError("Bad response from Met Office for land data: %d" % rsp.status_code)
+
         self.land = ET.fromstring(rsp.text)
+        if self.land.find('DV/Location/Period[1]/Rep[1]') is None:
+            raise ValueError("Warning: no final weather data found, printing response: " + rsp.text)
 
     def get_wind_speed(self):
         """
@@ -93,7 +97,7 @@ class Weather(object):
         """
         return float(self.land.find('DV/Location/Period[1]/Rep[1]').attrib["T"])
 
-    def fetch_sea_observ(self, id):
+    def fetch_sea_observ(self, weather_id):
 
         # Get sea temp from marine observation F3 - 162170
         # http://datapoint.metoffice.gov.uk/public/data/val/wxmarineobs/all/xml/162170?res=hourly&time=2016-02-19T12:00:00Z&key=xxx
@@ -129,8 +133,14 @@ class Weather(object):
             "res": "hourly",
             "key": self.api_key
         }
-        rsp = sess.get("http://datapoint.metoffice.gov.uk/public/data/val/wxmarineobs/all/xml/%s" % id, params=opts)
+        rsp = sess.get("http://datapoint.metoffice.gov.uk/public/data/val/wxmarineobs/all/xml/%s" % weather_id, params=opts)
+
+        if rsp.status_code != 200:
+            raise RuntimeError("Bad response from Met Office for marine data: %d" % rsp.status_code)
+
         self.marine = ET.fromstring(rsp.text)
+        if self.marine.find('DV/Location/Period[last()]/Rep[last()]') is None:
+            raise ValueError("Warning: no final weather data found, printing response: " + rsp.text)
 
     def get_sea_temp(self):
         return float(self.marine.find('DV/Location/Period[last()]/Rep[last()]').attrib["St"])

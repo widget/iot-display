@@ -2,7 +2,7 @@ import math
 from PIL import Image, ImageDraw, ImageFont
 
 from epd_generator import EPDGenerator
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 from ephem_tools import EphemerisHandler
 
 
@@ -23,10 +23,15 @@ class DisplayRenderer(object):
         self.surface_bw = None
         self.draw = ImageDraw.Draw(self.surface)
 
+        self.sunrise_time = self.ephem.calculate_sunrise()
+        self.sunset_time = self.ephem.calculate_sunset()
+
         if tz:
             # Cast to localtime (with pytz)
             time1 = tide1.time.astimezone(tz)
             time2 = tide2.time.astimezone(tz)
+            self.sunrise_time = self.sunrise_time.astimezone(tz)
+            self.sunset_time = self.sunset_time.astimezone(tz)
         else:
             time1 = tide1.time
             time2 = tide2.time
@@ -70,8 +75,8 @@ class DisplayRenderer(object):
         self.draw.multiline_text((270, 10), msg, font=self.small_font, align="left")
 
         # Print daylight hours
-        msg = "Daylight:\n%s\n%s" % (self.ephem.calculate_sunrise().strftime("%H:%M"),
-                                     self.ephem.calculate_sunset().strftime("%H:%M"))
+        msg = "Daylight:\n%s\n%s" % (self.sunrise_time.strftime("%H:%M"),
+                                     self.sunset_time.strftime("%H:%M"))
         self.draw.multiline_text((270, 215), msg, font=self.small_font, align="left", spacing=5)
 
         # Draw moon (which is a font here)
@@ -161,7 +166,6 @@ class DisplayRenderer(object):
         show a time based on a HH:MM string.
         """
 
-        size = (br[0] - tl[0], br[1] - tl[1])
         hour, minute = time.split(':')
         hour = int(hour)
         minute = int(minute)

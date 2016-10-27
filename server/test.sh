@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -eu
 
 LOC=/srv/www.stdin.co.uk/htdocs/iot
 

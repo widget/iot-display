@@ -1,6 +1,5 @@
 import datetime
 
-import re
 from tempfile import NamedTemporaryFile
 
 import pytz

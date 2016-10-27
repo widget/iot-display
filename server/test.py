@@ -17,7 +17,7 @@ from tide_parser import TideParser
 from weather import Weather
 
 
-def generate_status_page(metadata, wake_up_time):
+def generate_status_page(metadata_supplied, wake_up_time):
     try:
         with open("status.html", "w") as statusfile:
             statusfile.write("<html><head>Current status</head><body>")
@@ -25,12 +25,12 @@ def generate_status_page(metadata, wake_up_time):
 
             statusfile.write("<p>Last events:</p><ol>")
 
-            events = metadata.findall('./client/log')
+            events = metadata_supplied.findall('./client/log')
 
-            for e in events[:-6:-1]:  # iterate back over the last five
-                statusfile.write("""<li>{time}: {reason} - {battery}%</li>""".format(time=e.attrib["time"],
-                                                                                     reason=e.attrib["reset"],
-                                                                                     battery=e.attrib["battery"]))
+            for ev in events[:-6:-1]:  # iterate back over the last five
+                statusfile.write("""<li>{time}: {reason} - {battery}%</li>""".format(time=ev.attrib["time"],
+                                                                                     reason=ev.attrib["reset"],
+                                                                                     battery=ev.attrib["battery"]))
             statusfile.write("</ol></body></html>")
     except (IOError, KeyError):
         pass
@@ -80,18 +80,18 @@ output_png_path = config.get("General", "DebugOutput",
 
 # Filter tides
 if not args.time:
-    current = datetime.datetime.now()
+    current_local = datetime.datetime.now()
 else:
     try:
-        current = datetime.datetime.strptime(args.time, "%Y-%m-%d %H:%M")
+        current_local = datetime.datetime.strptime(args.time, "%Y-%m-%d %H:%M")
     except ValueError:
-        current = datetime.datetime.strptime(args.time, "%H:%M")
-        current = datetime.datetime.combine(datetime.date.today(),
-                                            current.time())
-        print("Hard-coding time to %s" % current)
-current = london.localize(current)
+        current_local = datetime.datetime.strptime(args.time, "%H:%M")
+        current_local = datetime.datetime.combine(datetime.date.today(),
+                                                  current_local.time())
+        print("Hard-coding time to %s" % current_local)
+current_local = london.localize(current_local)
 
-day_start = london.localize(datetime.datetime.combine(current.today(), datetime.time(0)))
+day_start = london.localize(datetime.datetime.combine(current_local.today(), datetime.time(0)))
 
 metadata = ET.ElementTree(ET.Element("display"))
 if os.path.exists(server_metadata_path):
@@ -143,13 +143,13 @@ if len(last_log_node) == 1:
     battery = int(last_log_node[0].attrib["battery"])
 
 if not args.force:
-    if current < next_wake:
+    if current_local < next_wake:
         if args.verbose:
             print("Waking too early (not yet %s)" % next_wake)
         sys.exit(0)
 
 valid_tides = [tide for tide in loaded_tides if tide.time > day_start]
-
+tides_downloaded = []
 if len(valid_tides) < 7:
     try:
         if args.verbose:
@@ -188,7 +188,7 @@ if args.verbose:
         print(t)
 
 # Wakeup into tomorrow, although the RSS feed is a bit slower
-wake_up_time = datetime.datetime.combine(current.date() + datetime.timedelta(days=1), datetime.time(hour=1, minute=15))
+wake_up_time_gmt = datetime.datetime.combine(current_local.date() + datetime.timedelta(days=1), datetime.time(hour=1, minute=15))
 
 try:
     weather = Weather(config.get("Weather", "ApiKey"))
@@ -197,39 +197,41 @@ try:
 except configparser.NoOptionError as e:
     weather = None
 except Exception as e:
-    print("Failed to get weather information: ")
-    print(e.__doc__)
+    print("Failed to fetch weather information: ")
+    print(str(type(e)))
     print(e)
     weather = None
 
 d = None
 if len(future_tides) >= 2:
     # Otherwise wakeup when we need to change the clock
-    wake_up_time = future_tides[0].time # GMT! not astimezone(london)
+    wake_up_time_gmt = future_tides[0].time # GMT! not astimezone(london)
     d = DisplayRenderer(future_tides[0], future_tides[1], battery=battery, location=location, weather=weather, tz=london)
 elif len(future_tides) == 1:
     d = DisplayRenderer(future_tides[0], battery=battery, location=location, weather=weather, tz=london)
-    wake_up_time = future_tides[0].time # GMT! not astimezone(london)
+    wake_up_time_gmt = future_tides[0].time # GMT! not astimezone(london)
 else:
     # For the sake of something to show we show this morning's, as next morning
     d = DisplayRenderer(today_tides[0], battery=battery, location=location, weather=weather)
 
 # Remove microseconds
-wake_up_time = wake_up_time.replace(microsecond=0)
+wake_up_time_gmt = wake_up_time_gmt.replace(microsecond=0)
 
 tides_node.clear()
 
 for tide in tides_downloaded:
     tides_node.append(tide.to_xml())
 
-# Now the time for the client to wakeup
+# OVERRIDE TO NO MORE THAN FOUR HOURS
+max_sleep = datetime.timedelta(hours=4)
+if wake_up_time_gmt > (gmt.localize(current_local) + max_sleep):
+    wake_up_time_gmt = gmt.localize(current_local) + max_sleep
 
-wake_up_time += SLACK
-# OVERRIDE TO TWO HOURS (localtime)
-# wake_up_time = current + datetime.timedelta(hours=2)
+# Now the time for the client to wakeup
+wake_up_time_gmt += SLACK
 
 # isoformat puts out tz info in the wrong format to be able to bloody load it again
-wut = wake_up_time.isoformat().split('+')[0]
+wut = wake_up_time_gmt.isoformat().split('+')[0]
 wakeup_node.attrib["time"] = wut
 
 # Save this in the log, so we can compare
@@ -244,9 +246,9 @@ metadata.write(server_metadata_path, xml_declaration=True)
 
 if args.verbose:
     # We'll only get log messages dated when we did it and when the next one should be
-    print("Next client wakeup is %s" % wake_up_time)
+    print("Next client wakeup is %s" % wake_up_time_gmt)
 
-client_metadata = {"wakeup": wake_up_time.timetuple()}
+client_metadata = {"wakeup": wake_up_time_gmt.timetuple()}
 
 with open(client_metadata_path, "w") as meta_out:
     json.dump(client_metadata, meta_out)
@@ -262,4 +264,4 @@ if d:
 else:
     print("Skipping render, no RSS data")
 
-generate_status_page(metadata, wake_up_time)
+generate_status_page(metadata, wake_up_time_gmt)

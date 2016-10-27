@@ -1,4 +1,4 @@
-from math import radians as rad, degrees as deg
+from math import radians as rad
 from datetime import date
 import ephem
 
@@ -42,9 +42,17 @@ class EphemerisHandler(object):
         #  m.phase,symbol)
 
     def calculate_sunrise(self):
+        """
+
+        :return: ALWAYS IN UT
+        """
         s = ephem.Sun()
         return self.observer.next_rising(s, use_center=False).datetime()
 
     def calculate_sunset(self):
+        """
+
+        :return: ALWAYS IN UT
+        """
         s = ephem.Sun()
         return self.observer.next_setting(s, use_center=False).datetime()
