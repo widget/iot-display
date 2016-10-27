@@ -1,6 +1,7 @@
 from math import radians as rad
 from datetime import date
 import ephem
+import pytz
 
 
 class EphemerisHandler(object):
@@ -14,6 +15,7 @@ class EphemerisHandler(object):
         self.observer.date = date.today()
 
         self.observer.pressure = 1000
+        self.gmt = pytz.timezone("GMT")
         #self.observer.horizon = 0
 
     def calculate_moon_phase(self):
@@ -44,15 +46,15 @@ class EphemerisHandler(object):
     def calculate_sunrise(self):
         """
 
-        :return: ALWAYS IN UT
+        :return: ALWAYS IN GMT
         """
         s = ephem.Sun()
-        return self.observer.next_rising(s, use_center=False).datetime()
+        return self.gmt.localize(self.observer.next_rising(s, use_center=False).datetime())
 
     def calculate_sunset(self):
         """
 
-        :return: ALWAYS IN UT
+        :return: ALWAYS IN GMT
         """
         s = ephem.Sun()
-        return self.observer.next_setting(s, use_center=False).datetime()
+        return self.gmt.localize(self.observer.next_setting(s, use_center=False).datetime())

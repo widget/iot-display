@@ -179,7 +179,7 @@ if len(tides_downloaded) == 0:
     # TODO handle error
     pass
 
-future_tides = [tide for tide in tides_downloaded if tide.time > current]
+future_tides = [tide for tide in tides_downloaded if tide.time > current_local]
 today_tides = [tide for tide in tides_downloaded if tide.time > day_start]
 
 if args.verbose:
