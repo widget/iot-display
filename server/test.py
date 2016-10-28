@@ -112,14 +112,17 @@ default_time = True
 next_wake = None
 try:
     if "time" in wakeup_node.attrib:
-        next_wake = london.localize(datetime.datetime.strptime(wakeup_node.attrib["time"], "%Y-%m-%dT%H:%M:%S"))
+        timeval = wakeup_node.attrib["time"]
+        if '.' in timeval:
+            timeval = timeval.split('.')[0]
+        next_wake = london.localize(datetime.datetime.strptime(timeval, "%Y-%m-%dT%H:%M:%S"))
         default_time = False
 except ValueError:
     print("Failed to read date from wakeup node: '%s'" % wakeup_node.attrib["time"])
 
 if default_time:
     print("Using default wake time")
-    next_wake = datetime.datetime(year=1980, month=1, day=1)
+    next_wake = london.localize(datetime.datetime(year=1980, month=1, day=1))
 
 # Load tides
 tides_node = metadata.find('./server/tides')
@@ -224,8 +227,8 @@ for tide in tides_downloaded:
 
 # OVERRIDE TO NO MORE THAN FOUR HOURS
 max_sleep = datetime.timedelta(hours=4)
-if wake_up_time_gmt > (gmt.localize(current_local) + max_sleep):
-    wake_up_time_gmt = gmt.localize(current_local) + max_sleep
+if wake_up_time_gmt > (current_local + max_sleep):
+    wake_up_time_gmt = current_local + max_sleep
 
 # Now the time for the client to wakeup
 wake_up_time_gmt += SLACK
