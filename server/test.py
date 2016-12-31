@@ -192,6 +192,7 @@ if args.verbose:
 
 # Wakeup into tomorrow, although the RSS feed is a bit slower
 wake_up_time_gmt = datetime.datetime.combine(current_local.date() + datetime.timedelta(days=1), datetime.time(hour=1, minute=15))
+wake_up_time_gmt = gmt.localize(wake_up_time_gmt)
 
 try:
     weather = Weather(config.get("Weather", "ApiKey"))

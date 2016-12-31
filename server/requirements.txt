@@ -1,0 +1,7 @@
+beautifulsoup4
+bitstring
+pyephem
+pillow
+pip
+pytz
+requests

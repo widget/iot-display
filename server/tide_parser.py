@@ -44,8 +44,13 @@ class TideParser(object):
             feed_doc = BeautifulSoup(rsp.content, "lxml")
 
             table_list = feed_doc.find_all("table", "HWLWTable")
-            year = str(datetime.datetime.now().year)
+            year = datetime.datetime.now().year
             SILLY_FORMAT = "%Y, %a %d %b %H:%M"
+
+            # end of year prediction code
+            current_month = datetime.datetime.now().month
+            # do this on first in new year, when we've started in december
+            first_in_next_year = False
 
             ret = []
 
@@ -60,7 +65,11 @@ class TideParser(object):
                 types = ["Low" if x == "LW" else "High" for x in tide_types]
                 times = []
                 for time in tide_times:
-                    times.append(datetime.datetime.strptime(year + ", " + table_date + " " + time, SILLY_FORMAT))
+                    if "1 Jan" in table_date and current_month == 12 and not first_in_next_year:
+                        # As there's no year information we have to bump forward
+                        year += 1
+                        first_in_next_year = True
+                    times.append(datetime.datetime.strptime(str(year) + ", " + table_date + " " + time, SILLY_FORMAT))
 
                 # Set to GMT, although when it's saved out, this is lost
                 gmt = pytz.timezone("GMT")
