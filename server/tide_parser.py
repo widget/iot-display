@@ -41,7 +41,7 @@ class TideParser(object):
                     tmp.write(rsp.content)
                     print("Content written to " + tmp.name)
 
-            feed_doc = BeautifulSoup(rsp.content)
+            feed_doc = BeautifulSoup(rsp.content, "lxml")
 
             table_list = feed_doc.find_all("table", "HWLWTable")
             year = str(datetime.datetime.now().year)

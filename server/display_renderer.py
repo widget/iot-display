@@ -29,12 +29,10 @@ class DisplayRenderer(object):
         if tz:
             # Cast to localtime (with pytz)
             time1 = tide1.time.astimezone(tz)
-            time2 = tide2.time.astimezone(tz)
             self.sunrise_time = self.sunrise_time.astimezone(tz)
             self.sunset_time = self.sunset_time.astimezone(tz)
         else:
             time1 = tide1.time
-            time2 = tide2.time
 
         self.tide1_time = "%02d:%02d" % (time1.hour, time1.minute)
         self.tide1_type = tide1.type.upper()
@@ -43,9 +41,14 @@ class DisplayRenderer(object):
         self.battery_charge = battery
         self.weather = weather
         if tide2:
+            if tz:
+                time2 = tide2.time.astimezone(tz)
+            else:
+                time2 = tide2.time
             self.tide2_time = "%02d:%02d" % (time2.hour, time2.minute)
             self.tide2_type = tide2.type.upper()
             self.tide2_height = tide2.height
+
         else:
             self.tide2_time = None
             # Assumes we don't get two HIGHs in a row which can happen in some places
