@@ -5,7 +5,12 @@ from config import Config
 from connect import Connect
 from epd import EPD
 from machine import RTC, Pin, WDT, idle, deepsleep, DEEPSLEEP
-from os import mount, unmount
+from os import mount
+try:
+    from os import unmount
+except ImportError:
+    # This changed name in micropython 1.9
+    from os import umount as unmount
 from time import sleep_ms
 from wipy import heartbeat
 

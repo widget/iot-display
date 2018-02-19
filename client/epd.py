@@ -26,9 +26,14 @@ class EPD(object):
         # ▪ Bit order – MSB first
         # ▪ Chip select polarity – active low
         self.spi = SPI(0)
-        self.spi.init(mode=SPI.MASTER, baudrate=baud, bits=8,
-                      polarity=1, phase=1, firstbit=SPI.MSB,
-                      pins=('GP31', 'GP16', 'GP30')) # CLK, MOSI, MISO
+        try:
+            self.spi.init(mode=SPI.MASTER, baudrate=baud, bits=8,
+                          polarity=1, phase=1, firstbit=SPI.MSB,
+                          pins=('GP31', 'GP16', 'GP30')) # CLK, MOSI, MISO
+        except AttributeError:
+            self.spi.init(baudrate=baud, bits=8,
+                          polarity=1, phase=1, firstbit=SPI.MSB,
+                          pins=('GP31', 'GP16', 'GP30')) # CLK, MOSI, MISO
 
         # These are all active low!
         self.tc_en_bar = Pin('GP4', mode=Pin.OUT)
