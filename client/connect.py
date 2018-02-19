@@ -7,10 +7,10 @@ import gc
 class Connect(object):
 
     # Using HTTP/1.0 with keep-alive as 1.1 can't refuse chunking (unlikely though it is)
-    REQ = """{method} {path} HTTP/1.0
-Host: {host}
-Connection: keep-alive
-User-Agent: Widget-IoTDisplay/1.0
+    REQ = """{method} {path} HTTP/1.0\r
+Host: {host}\r
+Connection: keep-alive\r
+User-Agent: Widget-IoTDisplay/1.0\r
 """
 
     def __init__(self, host, port=80, debug=False):
@@ -44,7 +44,7 @@ User-Agent: Widget-IoTDisplay/1.0
         content = "&".join(content_dict)
 
         req = Connect.REQ.format(host=self.host, path=path, method="POST")
-        req += 'Content-Type: application/x-www-form-urlencoded\nContent-Length: %d\n\n' % len(content)
+        req += 'Content-Type: application/x-www-form-urlencoded\r\nContent-Length: %d\r\n\r\n' % len(content)
 
         if self.debug:
             print(req)
@@ -108,7 +108,7 @@ User-Agent: Widget-IoTDisplay/1.0
 
     def _do_get(self, max_length, path, path_type):
         req = Connect.REQ.format(host=self.host, path=path, method='GET')
-        req += 'Accept-Encoding: identity\n\n'
+        req += 'Accept-Encoding: identity\r\n\r\n'
         req = req.encode()
         try:
             self.socket.send(req)
