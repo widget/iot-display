@@ -5,7 +5,8 @@ import configparser
 import datetime
 import json
 import os.path
-import rrdtool
+from pygal.style import LightenStyle, LightColorizedStyle
+import pygal
 import pytz
 import sys
 import logging
@@ -34,13 +35,33 @@ def generate_status_page(metadata_supplied, wake_up_time, status_path):
                 statusfile.write("""<li>{time}: {reason} - {battery}%</li>""".format(time=ev.attrib["time"],
                                                                                      reason=ev.attrib["reset"],
                                                                                      battery=ev.attrib["battery"]))
-            statusfile.write("</ol><img src='graph.png' /></body></html>")
-        # rrdtool.graph("graph.png",
-        #               "--start", "-2d",
-        #               "DEF:b=%s:battery:LAST" % rrd_path,
-        #               "DEF:t=%s:temperature:LAST" % rrd_path,
-        #               "LINE:b#FF0000:Battery",
-        #               "LINE:t#0000FF:Temperature")
+
+            # draw a graph
+            PERIOD = datetime.timedelta(days=28)
+            cutoff = datetime.datetime.now() - PERIOD
+            events = [ev for ev in events if "screen" in ev.attrib.keys()]
+            dates = [datetime.datetime.strptime(pt.attrib["time"].split('+')[0], "%Y-%m-%dT%H:%M:%S")
+                     for pt in events]
+            charge = [int(pt.attrib["battery"]) for pt in events]
+            screen_temp = [int(pt.attrib["screen"]) for pt in events]
+
+            charge_pts = [y for y in zip(dates,charge) if y[0] >= cutoff]
+            screen_pts = [y for y in zip(dates,screen_temp) if y[0] >= cutoff]
+
+            ourstyle = LightenStyle('#235670', step=5, base_style=LightColorizedStyle)
+            ourstyle.background = '#ffffff'
+
+            conf = pygal.Config()
+            conf.style = ourstyle
+            conf.interpolate = "cubic"
+
+            chart = pygal.DateTimeLine(conf)
+            chart.title = "Client logging"
+            chart.add("Battery", charge_pts)
+            chart.add("Screen temp", screen_pts)
+
+            statusfile.write("</ol><br />%s</body></html>" % chart.render(disable_xml_declaration=True))
+
     except (IOError, KeyError):
         pass
 
@@ -170,28 +191,14 @@ for node in metadata.findall('./server/tides/tide'):
     loaded_tides.append(t)
     logging.debug("Loading stored %s", t)
 
-# Pull the last uploaded values out and log to rrdtool
+# Pull the last battery for putting in the display
 last_log_node = metadata.findall('./client/log[last()]')
 battery = 0
 if len(last_log_node) == 1:
     try:
         battery = int(last_log_node[0].attrib["battery"])
-        temp = int(last_log_node[0].attrib["screen"])
-        try:
-            if not os.path.exists(rrd_path):
-                logging.info("Creating RRD at ", rrd_path)
-                rrdtool.create(rrd_path, "--start", "now",
-                               "--step", "10m",
-                               "DS:battery:GAUGE:1h:0:100",
-                               "DS:temperature:GAUGE:1h:0:100",
-                               "RRA:AVERAGE:0.5:10m:3M",
-                               "RRA:LAST:0.5:10m:3M")
-            rrdtool.update(rrd_path, "N:%s:%s" %(battery, temp))
-            logging.debug("Updated RRD %s", rrd_path)
-        except rrdtool.OperationalError:
-            logging.exception("Couldn't update RRD %s", rrd_path)
     except KeyError:
-        logging.exception("Couldn't get data to store in RRD")
+        pass
 
 if not args.force:
     if current_local < (next_wake-SLACK):
@@ -285,6 +292,7 @@ wake_up_time_gmt += SLACK
 
 # Remove microseconds
 wake_up_time_gmt = wake_up_time_gmt.replace(microsecond=0)
+generate_status_page(metadata, wake_up_time_gmt, server_status_path)
 
 # isoformat puts out tz info in the wrong format to be able to bloody load it again
 wut = wake_up_time_gmt.isoformat().split('+')[0]
