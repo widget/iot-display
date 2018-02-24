@@ -107,12 +107,12 @@ class DisplayRenderer(object):
                            "%d" % int(self.weather.get_wind_speed()),
                            wind_dir)
 
-            msg = "Land: %.1f°C\n Sea: %.1f°C" % (self.weather.get_temperature(),
+            msg = "Land: %.1f°C\nSea: %.1f°C" % (self.weather.get_temperature(),
                                                   self.weather.get_sea_temp())
-            self.draw.multiline_text((317, 100), msg, font=self.small_font)
+            self.draw.multiline_text((320, 90), msg, font=self.small_font, align="right")
 
-            msg = "Waves: %.1fm" % self.weather.get_wave_height()
-            self.draw.multiline_text((270, 170), msg, font=self.small_font)
+            msg = "Waves: %.1fm\nUV: %s" % (self.weather.get_wave_height(), self.weather.get_uv())
+            self.draw.multiline_text((270, 165), msg, font=self.small_font)
 
     def draw_battery(self, pos):
         """
