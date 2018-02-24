@@ -5,11 +5,13 @@ import configparser
 import datetime
 import json
 import os.path
+import rrdtool
 import pytz
 import sys
 import logging
 
 import xml.etree.ElementTree as ET
+
 
 from display_renderer import DisplayRenderer
 from epd_generator import EPDGenerator
@@ -32,16 +34,28 @@ def generate_status_page(metadata_supplied, wake_up_time, status_path):
                 statusfile.write("""<li>{time}: {reason} - {battery}%</li>""".format(time=ev.attrib["time"],
                                                                                      reason=ev.attrib["reset"],
                                                                                      battery=ev.attrib["battery"]))
-            statusfile.write("</ol></body></html>")
+            statusfile.write("</ol><img src='graph.png' /></body></html>")
+        # rrdtool.graph("graph.png",
+        #               "--start", "-2d",
+        #               "DEF:b=%s:battery:LAST" % rrd_path,
+        #               "DEF:t=%s:temperature:LAST" % rrd_path,
+        #               "LINE:b#FF0000:Battery",
+        #               "LINE:t#0000FF:Temperature")
     except (IOError, KeyError):
         pass
 
 
 def print_time(dt):
+    """
+    Kept forgetting the strftime format I wanted, save it here
+    """
     return dt.strftime("%Y-%m-%dT%H:%M:%S")
 
 
 class DateTimeEncoder(json.JSONEncoder):
+    """
+    JSON encoder that overloads the datetime format to output as a string
+    """
     def default(self, o):
         if isinstance(o, datetime.datetime):
             return o.isoformat()
@@ -56,6 +70,7 @@ SERVER_METADATA = "server.xml"
 SERVER_STATUS = "status.html"
 OUTPUT_EPD = "data.bin"
 OUTPUT_PNG = "data.png"
+RRD_PATH = "info.rrd"
 
 london = pytz.timezone("Europe/London")
 gmt = pytz.timezone("GMT")
@@ -93,6 +108,8 @@ output_epd_path = config.get("General", "DisplayOutput",
                              fallback=os.path.join(args.dir, OUTPUT_EPD))
 output_png_path = config.get("General", "DebugOutput",
                              fallback=os.path.join(args.dir, OUTPUT_PNG))
+rrd_path = config.get("General", "RoundRobin",
+                             fallback=os.path.join(args.dir, RRD_PATH))
 
 # Filter tides
 if not args.time:
@@ -104,7 +121,7 @@ else:
         current_local = datetime.datetime.strptime(args.time, "%H:%M")
         current_local = datetime.datetime.combine(datetime.date.today(),
                                                   current_local.time())
-        logging.info("Hard-coding time to %s" % current_local)
+        logging.info("Hard-coding time to %s", current_local)
 
 current_local = london.localize(current_local)
 day_start = london.localize(datetime.datetime.combine(current_local.today(), datetime.time(0)))
@@ -133,7 +150,7 @@ try:
         next_wake = london.localize(datetime.datetime.strptime(timeval, "%Y-%m-%dT%H:%M:%S"))
         default_time = False
 except ValueError:
-    logging.error("Failed to read date from wakeup node: '%s'" % wakeup_node.attrib["time"])
+    logging.error("Failed to read date from wakeup node: '%s'", wakeup_node.attrib["time"])
 
 if default_time:
     logging.info("Using default wake time")
@@ -151,17 +168,34 @@ for node in metadata.findall('./server/tides/tide'):
              node.attrib["type"],
              float(node.attrib["height"]))
     loaded_tides.append(t)
-    logging.debug("Loading stored %s" % t)
+    logging.debug("Loading stored %s", t)
 
-# Pull the battery value out
+# Pull the last uploaded values out and log to rrdtool
 last_log_node = metadata.findall('./client/log[last()]')
 battery = 0
 if len(last_log_node) == 1:
-    battery = int(last_log_node[0].attrib["battery"])
+    try:
+        battery = int(last_log_node[0].attrib["battery"])
+        temp = int(last_log_node[0].attrib["screen"])
+        try:
+            if not os.path.exists(rrd_path):
+                logging.info("Creating RRD at ", rrd_path)
+                rrdtool.create(rrd_path, "--start", "now",
+                               "--step", "10m",
+                               "DS:battery:GAUGE:1h:0:100",
+                               "DS:temperature:GAUGE:1h:0:100",
+                               "RRA:AVERAGE:0.5:10m:3M",
+                               "RRA:LAST:0.5:10m:3M")
+            rrdtool.update(rrd_path, "N:%s:%s" %(battery, temp))
+            logging.debug("Updated RRD %s", rrd_path)
+        except rrdtool.OperationalError:
+            logging.exception("Couldn't update RRD %s", rrd_path)
+    except KeyError:
+        logging.exception("Couldn't get data to store in RRD")
 
 if not args.force:
     if current_local < (next_wake-SLACK):
-        logging.debug("Waking too early (not yet %s)" % (next_wake-SLACK))
+        logging.debug("Waking too early (not yet %s)", (next_wake-SLACK))
         sys.exit(0)
 
 valid_tides = [tide for tide in loaded_tides if tide.time > day_start]
@@ -241,10 +275,10 @@ for tide in tides_downloaded:
 #     # OVERRIDE TO NO MORE THAN FOUR HOURS
 #     max_sleep = datetime.timedelta(minutes=args.min)
 #     if wake_up_time_gmt > (current_local + max_sleep):
-#         logging.info("Original wakeup of %s" % print_time(wake_up_time_gmt))
+#         logging.info("Original wakeup of %s", print_time(wake_up_time_gmt))
 #
 #         wake_up_time_gmt = current_local + max_sleep
-#         logging.info("Now %s (%d min)" % (print_time(wake_up_time_gmt), args.min))
+#         logging.info("Now %s (%d min)", (print_time(wake_up_time_gmt), args.min))
 
 # Now the time for the client to wakeup
 wake_up_time_gmt += SLACK
@@ -266,7 +300,7 @@ if client_node:
 
 metadata.write(server_metadata_path, xml_declaration=True)
 
-logging.debug("Next client wakeup is %s" % wake_up_time_gmt)
+logging.debug("Next client wakeup is %s", wake_up_time_gmt)
 
 client_metadata = {"wakeup": wake_up_time_gmt.timetuple()}
 
@@ -284,4 +318,3 @@ if d:
 else:
     logging.info("Skipping render, no RSS data")
 
-generate_status_page(metadata, wake_up_time_gmt, server_status_path)
