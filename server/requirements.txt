@@ -1,9 +1,9 @@
-beautifulsoup4=4.6.0
-bitstring=3.1.5
-lxml
-pyephem=3.7.6.0
+beautifulsoup4==4.6.0
+bitstring==3.1.5
+lxml<=4.2
+pyephem==3.7.6.0
 pillow==5.0.0
-pip
-pytz
-requests=2.18
-rrdtool=0.1.12
+pip<=9.1
+pytz<=2019
+requests<=2.19
+rrdtool==0.1.12
