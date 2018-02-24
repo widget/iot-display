@@ -14,4 +14,6 @@ cp metadata.json ${LOC}
 cp data.bin ${LOC}
 cp data.png ${LOC}
 cp server.xml ${LOC}
-cp status.html ${LOC}
+if [ -f status.html ]; then
+    cp status.html ${LOC}
+fi
