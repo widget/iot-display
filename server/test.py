@@ -24,15 +24,21 @@ from weather import Weather
 def generate_status_page(metadata_supplied, wake_up_time, status_path):
     try:
         with open(status_path, "w") as statusfile:
-            statusfile.write("<html><head>Current status</head><body>")
-            statusfile.write("<p>Next wakeup due at %s</p>" % wake_up_time.isoformat())
+            statusfile.write("""<html>
+<head>
+    <title>Current status</title>
+    <script type="text/javascript" src="http://kozea.github.com/pygal.js/latest/pygal-tooltips.min.js">
+    </script>
+</head>
+<body>\n""")
+            statusfile.write("<p>Next wakeup due at %s</p>\n" % wake_up_time.isoformat())
 
-            statusfile.write("<p>Last events:</p><ol>")
+            statusfile.write("<p>Last events:</p>\n<ol>\n")
 
             events = metadata_supplied.findall('./client/log')
 
             for ev in events[:-6:-1]:  # iterate back over the last five
-                statusfile.write("""<li>{time}: {reason} - {battery}%</li>""".format(time=ev.attrib["time"],
+                statusfile.write("""<li>{time}: {reason} - {battery}%</li>\n""".format(time=ev.attrib["time"],
                                                                                      reason=ev.attrib["reset"],
                                                                                      battery=ev.attrib["battery"]))
 
@@ -48,19 +54,16 @@ def generate_status_page(metadata_supplied, wake_up_time, status_path):
             charge_pts = [y for y in zip(dates,charge) if y[0] >= cutoff]
             screen_pts = [y for y in zip(dates,screen_temp) if y[0] >= cutoff]
 
-            ourstyle = LightenStyle('#235670', step=5, base_style=LightColorizedStyle)
-            ourstyle.background = '#ffffff'
-
             conf = pygal.Config()
-            conf.style = ourstyle
-            conf.interpolate = "cubic"
+            conf.style = LightColorizedStyle
+            conf.interpolate = "hermite"
 
             chart = pygal.DateTimeLine(conf)
             chart.title = "Client logging"
             chart.add("Battery", charge_pts)
             chart.add("Screen temp", screen_pts)
 
-            statusfile.write("</ol><br />%s</body></html>" % chart.render(disable_xml_declaration=True))
+            statusfile.write("</ol>\n<br /><figure>\n%s</figure>\n</body>\n</html>" % chart.render(disable_xml_declaration=True))
 
     except (IOError, KeyError):
         pass
