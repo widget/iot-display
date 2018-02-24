@@ -1,3 +1,9 @@
 *.pyc
 .idea
+*.svg
 *.json
+server-venv
+*.pdf
+*.xcf
+*.png
+*.jpg

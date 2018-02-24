@@ -1,0 +1,7 @@
+Host: www.example.com
+WiFi: MySSID
+Pass: ssshItsSecret
+Port: 80
+Image: data.bin
+Meta: metadata.json
+Up: upload.php
