@@ -97,6 +97,24 @@ class Weather(object):
         """
         return float(self.land.find('DV/Location/Period[1]/Rep[1]').attrib["T"])
 
+    def get_uv(self):
+        """
+        Get UV as WHO index (range is 1-8 for the UK)
+        :return:
+        """
+        val = int(self.land.find('DV/Location/Period[1]/Rep[1]').attrib["U"])
+        if val <= 2:
+            val_str = "Low"
+        elif val <= 5:
+            val_str = "Medium"
+        elif val <= 7:
+            val_str = "High!"
+        elif val <=10:
+            val_str = "Very high!"
+        else:
+            val_str = "EXTREME"
+        return val_str
+
     def fetch_sea_observ(self, weather_id):
 
         # Get sea temp from marine observation F3 - 162170
