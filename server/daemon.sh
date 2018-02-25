@@ -7,7 +7,7 @@ cd /home/widget/iot
 cp ${LOC}/server.xml .
 
 # Do processing (race condition ho ho)
-python3 test.py -c mine.cfg
+python3 tideclock_generator.py -c mine.cfg
 
 # Copy everything back again
 cp metadata.json ${LOC}

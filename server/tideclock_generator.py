@@ -44,31 +44,47 @@ def generate_status_page(metadata_supplied, wake_up_time, status_path):
                                                                                      battery=ev.attrib["battery"]))
 
             # draw a graph
-            PERIOD = datetime.timedelta(days=28)
-            cutoff = datetime.datetime.now() - PERIOD
-            events = [ev for ev in events if "screen" in ev.attrib.keys()]
-            dates = [datetime.datetime.strptime(pt.attrib["time"].split('+')[0], "%Y-%m-%dT%H:%M:%S")
-                     for pt in events]
-            charge = [int(pt.attrib["battery"]) for pt in events]
-            screen_temp = [int(pt.attrib["screen"]) for pt in events]
-
-            charge_pts = [y for y in zip(dates,charge) if y[0] >= cutoff]
-            screen_pts = [y for y in zip(dates,screen_temp) if y[0] >= cutoff]
-
-            conf = pygal.Config()
-            conf.style = LightColorizedStyle
-            #conf.interpolate = "hermite"
-
-            chart = pygal.DateTimeLine(conf)
-            chart.title = "Client logging"
-            chart.add("Battery", charge_pts)
-            chart.add("Screen temp", screen_pts)
+            chart = generate_chart(14, events)
 
             statusfile.write("</ol>\n<br /><figure>\n%s</figure>\n</body>\n</html>" %
                              chart.render(disable_xml_declaration=True))
 
     except (IOError, KeyError):
         logging.exception("Failed to generate status page at %s", status_path)
+
+
+def generate_chart(days, events):
+    """
+    Generate a nice SVG chart in Pygal for the last N days of events
+    :param days:
+    :param events: The client/log events in the XML
+    :return: pygal object for rendering
+    """
+    cutoff = datetime.datetime.now() - datetime.timedelta(days=days)
+    events = [ev for ev in events if "screen" in ev.attrib.keys()]
+    dates = [datetime.datetime.strptime(pt.attrib["time"].split('+')[0], "%Y-%m-%dT%H:%M:%S")
+             for pt in events]
+    charge = [int(pt.attrib["battery"]) for pt in events]
+    screen_temp = [int(pt.attrib["screen"]) for pt in events]
+    charge_pts = [y for y in zip(dates, charge) if y[0] >= cutoff]
+    screen_pts = [y for y in zip(dates, screen_temp) if y[0] >= cutoff]
+
+    # Configure the chart style to look nice
+    conf = pygal.Config()
+    conf.style = LightColorizedStyle
+    conf.legend_at_bottom = True
+    conf.show_minor_x_labels = True
+    conf.tooltip_border_radius = 5
+    conf.truncate_label = 11  # Just show the date, not the time
+    conf.x_labels = [datetime.date.today() - datetime.timedelta(days=x) for x in range(days, -1, -2)]
+    # conf.interpolate = "hermite"
+
+    # Generate the chart
+    chart = pygal.DateTimeLine(conf)
+    chart.title = "Client logging"
+    chart.add("Battery", charge_pts)
+    chart.add("Screen temp", screen_pts)
+    return chart
 
 
 def print_time(dt):
