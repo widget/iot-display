@@ -305,6 +305,10 @@ if __name__ == "__main__":
         # Now the time for the client to wakeup
         wake_up_time_gmt += SLACK
 
+        # Don't beacon in when the cronjob is running, defaults on a ten minute boundary
+        if not (wake_up_time_gmt.minute % 10):
+            wake_up_time_gmt += datetime.timedelta(minutes=2)
+
         # Remove microseconds
         wake_up_time_gmt = wake_up_time_gmt.replace(microsecond=0)
         # isoformat puts out tz info in the wrong format to be able to bloody load it again
