@@ -39,11 +39,14 @@ class Config(object):
             cfg = Config.load_file(Config.SD_CONFIG_PATH, debug)
 
             if unmount:
-                os.unmount('/sd')
+                try:
+                    os.unmount('/sd') # got renamed in upy 1.9
+                except AttributeError:
+                    os.umount('/sd')
                 sd.deinit()
                 del sd
         except OSError:
-            print("Can't open SD card")
+            print("Can't open config file SD card")
 
         if not cfg:
             cfg = Config.load_file(Config.FLASH_CONFIG_PATH, debug)
