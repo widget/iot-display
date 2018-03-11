@@ -35,7 +35,7 @@ class Config(object):
                 os.mount(sd, '/sd')
                 unmount = True
 
-            cfg = Config.load_file(Config.SD_CONFIG_PATH, debug)
+            cfg = Config.load_file(open(Config.SD_CONFIG_PATH,"r"), debug)
 
             if unmount:
                 try:

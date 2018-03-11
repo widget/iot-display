@@ -86,7 +86,7 @@ class Display(object):
         if not self.cfg:
             raise ValueError("Can't initialise wifi, no config")
 
-        self.log('Starting WLAN, attempting to connect to ' + ','.join(self.cfg.wifis.keys()))
+        self.log('Starting WLAN, attempting to connect to ' + ','.join(self.cfg.wifi.keys()))
         wlan = WLAN(0, WLAN.STA)
         wlan.ifconfig(config='dhcp')
         while not wlan.isconnected():
