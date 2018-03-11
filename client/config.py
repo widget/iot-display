@@ -1,5 +1,4 @@
 
-from machine import SD
 import os
 
 
@@ -11,14 +10,13 @@ class Config(object):
     FLASH_CONFIG_PATH = "/flash/data/config.txt"
     SD_CONFIG_PATH = "/sd/config.txt"
 
-    def __init__(self, host, image, meta, upload, ap, key, port=80):
+    def __init__(self, host, image, meta, upload, wifis, port=80):
         self.host = host
         self.port = port
         self.image_path = image
         self.metadata_path = meta
         self.upload_path = upload
-        self.wifi_ssid = ap
-        self.wifi_key = key
+        self.wifi = wifis
 
     @staticmethod
     def load(debug=False, sd=None):
@@ -28,6 +26,7 @@ class Config(object):
         :param sd: SD object if mounted already
         :return: Config object
         """
+        from machine import SD
         cfg = None
         try:
             unmount = False
@@ -49,7 +48,7 @@ class Config(object):
             print("Can't open config file SD card")
 
         if not cfg:
-            cfg = Config.load_file(Config.FLASH_CONFIG_PATH, debug)
+            cfg = Config.load_file(open(Config.FLASH_CONFIG_PATH, "r"), debug)
             if not cfg:
                 raise ValueError("No config file!")
             print("Loaded from flash")
@@ -60,40 +59,44 @@ class Config(object):
         return cfg
 
     @staticmethod
-    def load_file(path, debug=False):
+    def load_file(cfg_file, debug=False):
         host = ""
-        wifi_ap = ""
-        wifi_key= ""
         port = 80
         image = ""
         meta = ""
         upload = ""
-        with open(path, "r") as cfgfile:
-            for line in cfgfile:
-                line = line.strip()
+        wifi_list = {}
+        current_ap = None
+        for line in cfg_file:
+            line = line.strip()
+            if debug:
+                print("Processing line '%s'" % line)
+            try:
+                if line.startswith("Host:"):
+                    host = line[5:].strip()
+                elif line.startswith("WiFi:"):
+                    current_ap = line[5:].strip()
+                    wifi_list[current_ap] = None
+                elif line.startswith("Pass:"):
+                    wifi_key = line[5:].strip()
+                    if current_ap:
+                        wifi_list[current_ap] = wifi_key
+                    else:
+                        print("No AP provided for pw!")
+                elif line.startswith("Port:"):
+                    port = int(line[5:])
+                elif line.startswith("Image:"):
+                    image = line[6:].strip()
+                elif line.startswith("Meta:"):
+                    meta = line[5:].strip()
+                elif line.startswith("Up:"):
+                    upload = line[3:].strip()
+            except ValueError:
                 if debug:
-                    print("Processing line '%s'" % line)
-                try:
-                    if line.startswith("Host:"):
-                        host = line[5:].strip()
-                    elif line.startswith("WiFi:"):
-                        wifi_ap = line[5:].strip()
-                    elif line.startswith("Pass:"):
-                        wifi_key = line[5:].strip()
-                    elif line.startswith("Port:"):
-                        port = int(line[5:])
-                    elif line.startswith("Image:"):
-                        image = line[6:].strip()
-                    elif line.startswith("Meta:"):
-                        meta = line[5:].strip()
-                    elif line.startswith("Up:"):
-                        upload = line[3:].strip()
-                except ValueError:
-                    if debug:
-                        print("Can't process line")
+                    print("Can't process line")
 
-        if host and wifi_ap and wifi_key and image and meta:
-            return Config(host, image, meta, upload, wifi_ap, wifi_key, port)
+        if host and len(wifi_list) > 0 and image and meta:
+            return Config(host, image, meta, upload, wifi_list, port)
         else:
             return None
 

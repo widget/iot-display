@@ -86,12 +86,23 @@ class Display(object):
         if not self.cfg:
             raise ValueError("Can't initialise wifi, no config")
 
-        self.log('Starting WLAN, attempting to connect to ' + self.cfg.wifi_ssid)
+        self.log('Starting WLAN, attempting to connect to ' + ','.join(self.cfg.wifis.keys()))
         wlan = WLAN(0, WLAN.STA)
         wlan.ifconfig(config='dhcp')
-        wlan.connect(ssid=self.cfg.wifi_ssid, auth=(WLAN.WPA2, self.cfg.wifi_key))
         while not wlan.isconnected():
-            idle()
+            nets = wlan.scan()
+            for network in nets:
+                if network.ssid in self.cfg.wifi.keys():
+                    self.log('Connecting to ' + network.ssid)
+                    self.feed_wdt() # just in case
+                    wlan.connect(ssid=network.ssid, auth=(network.sec, self.cfg.wifi[network.ssid]))
+                    while not wlan.isconnected():
+                        idle()
+                    break
+
+            self.feed_wdt() # just in case
+            sleep_ms(2000)
+
         self.log('Connected as %s' % wlan.ifconfig()[0])
 
     @staticmethod
