@@ -12,12 +12,10 @@ class Battery(object):
     The ADC measures between 0-1.4V
     It is 12bit (0-4095)
     It is measuring off a 56k/(56k+115k) voltage divider - 0.32
-    A charged LiPo is 4.2V
-    Minimum voltage is 3.2V
     """
-    MINIMUM = 2990 # 3.2 * 0.32 / 1.4 * 4096 (ltr, cba with brackets)
-    CHARGED = 3560 # Using 3.8V atm
-    PERCENT = 6 # 900 Range
+    MINIMUM = 3180 # 3.64V measured
+    CHARGED = 3600 # Using 4.15V
+    RANGE = (CHARGED - MINIMUM)
 
     def __init__(self):
         self.adc = ADC()
@@ -39,7 +37,10 @@ class Battery(object):
         Battery percentage
         :return: 0-100
         """
-        val = (self.battery_raw() - Battery.MINIMUM) // Battery.PERCENT
+        val = (self.battery_raw() - Battery.MINIMUM) * 100
+        val = val // Battery.RANGE
         if val > 100:
             val = 100
+        if val < 0:
+            val = 0
         return val

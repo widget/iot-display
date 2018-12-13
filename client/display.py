@@ -202,15 +202,23 @@ class Display(object):
 
         battery = Battery()
 
+        now_batt = 200
+        last_batt = battery.battery_raw()
+        while now_batt > last_batt:
+            sleep_ms(50)
+            last_batt = now_batt
+            now_batt = battery.battery_raw()
+            self.log("Battery value: %d (%d)" % (battery.value(), battery.battery_raw()))
+
         self.epd.enable()
 
         if not battery.safe():
-            self.log("Battery voltage low! Turning off")
+            self.log("Battery voltage (%d) low! Turning off" % battery.battery_raw())
             self.feed_wdt()
             self.display_low_battery()
             return
         else:
-            self.log("Battery value: %d" % battery.value())
+            self.log("Battery value: %d (%d)" % (battery.value(), battery.battery_raw()))
 
         try:
             self.epd.get_sensor_data()

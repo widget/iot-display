@@ -1,6 +1,6 @@
 Host: www.example.com
-WiFi: MySSID
-Pass: ssshItsSecret
+WiFi: TideClock
+Pass: tide1tide
 Port: 80
 Image: data.bin
 Meta: metadata.json

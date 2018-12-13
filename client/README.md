@@ -14,6 +14,9 @@ If the configuration results in a successful download then the config is copied 
 3. Put SD card inside WiPy (requires disassembly)
 4. Apply power
 
+There is now support for multiple SSIDs so no fiddling is needed when moving between hotspots.
+Add multiple {WiFi, Pass} lines.
+
 Usage
 -----
 
@@ -47,3 +50,12 @@ To check for this:
 1. Turn it off
 2. Plug it in to charge
 3. It will turn on when charging
+
+Development
+---------
+
+There is a wire connected between GP24 and GND.
+Removing it will cause the board to not fall asleep and will also disable the WDT.
+This can be spotted by the heartbeat remaining on.
+
+Now the UART will stay up on 115200n8 baud.
