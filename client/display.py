@@ -41,6 +41,7 @@ class Display(object):
         self.cfg = None
         self.rtc = RTC()
         self.debug = debug
+        self.battery = Battery()
 
         # use this pin for debug
         self.wifi_pin = Pin("GP24", mode=Pin.IN, pull=Pin.PULL_UP)
@@ -170,8 +171,30 @@ class Display(object):
         with open(Display.IMG_DIR + '/no_wifi.bin', 'rb') as pic:
             self.display_file_image(pic)
 
+    def check_battery_level(self):
+        now_batt = 200
+        last_batt = self.battery.battery_raw()
+        while now_batt > last_batt:
+            sleep_ms(50)
+            last_batt = now_batt
+            self.feed_wdt()
+            now_batt = self.battery.battery_raw()
+            self.log("Battery value: %d (%d)" % (self.battery.value(), self.battery.battery_raw()))
+
+        if not self.battery.safe():
+            self.log("Battery voltage (%d) low! Turning off" % self.battery.battery_raw())
+            self.feed_wdt()
+            self.display_low_battery()
+            return False
+        else:
+            self.log("Battery value: %d (%d)" % (self.battery.value(), self.battery.battery_raw()))
+        return True
+
     def run_deepsleep(self):
-        self.run()
+
+        if not self.run():
+            # RTC wasn't set, try to sleep forever
+            self.rtc.alarm(time=2000000000)
 
         # Set the wakeup (why do it earlier?)
         rtc_i = self.rtc.irq(trigger=RTC.ALARM0, wake=DEEPSLEEP)
@@ -199,26 +222,10 @@ class Display(object):
     def run(self):
 
         woken = self.wifi_pin()
-
-        battery = Battery()
-
-        now_batt = 200
-        last_batt = battery.battery_raw()
-        while now_batt > last_batt:
-            sleep_ms(50)
-            last_batt = now_batt
-            now_batt = battery.battery_raw()
-            self.log("Battery value: %d (%d)" % (battery.value(), battery.battery_raw()))
-
         self.epd.enable()
 
-        if not battery.safe():
-            self.log("Battery voltage (%d) low! Turning off" % battery.battery_raw())
-            self.feed_wdt()
-            self.display_low_battery()
-            return
-        else:
-            self.log("Battery value: %d (%d)" % (battery.value(), battery.battery_raw()))
+        if not self.check_battery_level():
+            return False
 
         try:
             self.epd.get_sensor_data()
@@ -226,13 +233,13 @@ class Display(object):
             self.log("Can't communicate with display, flashing light and giving up")
             heartbeat(True)
             sleep_ms(15000)
-            return
+            return True
 
         if self.rtc.alarm_left() > 0:
             self.log("Woken up but the timer is still running, refreshing screen only")
             self.epd.display_update()
             self.feed_wdt()
-            return
+            return True
 
         try:
             self.cfg = Config.load(sd=self.sd)
@@ -269,7 +276,7 @@ class Display(object):
             if len(self.cfg.upload_path) > 0:
                 temp = self.epd.get_sensor_data() # we read this already
                 c.post(self.cfg.upload_path,
-                       battery=battery.value(),
+                       battery=self.battery.value(),
                        reset=cause,
                        screen=temp)
 
@@ -281,7 +288,7 @@ class Display(object):
 
             self.feed_wdt()
             del metadata
-            del battery
+            del self.battery
             self.log("Fetching image from " + self.cfg.image_path)
             self.epd.image_erase_frame_buffer()
             self.feed_wdt()
@@ -297,7 +304,7 @@ class Display(object):
             self.log("Failed to get remote info: " + str(e))
             self.display_cannot_connect()
             self.rtc.alarm(time=3600000)
-            return
+            return True
 
         sleep_ms(1000) # How do we make the write to display more reliable?
         self.feed_wdt()
@@ -312,3 +319,4 @@ class Display(object):
             self.log("SUCCESS")
 
         self.log("Finished. Mem free: %d" % gc.mem_free())
+        return True
