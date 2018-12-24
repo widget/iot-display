@@ -8,6 +8,7 @@ import logging
 import os.path
 import sys
 import xml.etree.ElementTree as ET
+from typing import TextIO, Optional
 
 import pygal
 import pytz
@@ -20,11 +21,16 @@ from tide_parser import TideParser
 from weather import Weather
 
 
-def generate_status_page(metadata_supplied, wake_up_time, status_path):
+def generate_status_page(metadata_supplied: ET,
+                         wake_up_time: datetime.datetime,
+                         status_path: str,
+                         output_png_time: Optional[datetime.datetime]) -> None:
     try:
-        with open(status_path, "w") as statusfile:
+        status_file: TextIO
+
+        with open(status_path, "w") as status_file:
             logging.debug("Generating status page at %s", status_path)
-            statusfile.write("""<!doctype html>
+            status_file.write("""<!doctype html>
 <html lang="en">
 <head>
     <title>Current status</title>
@@ -32,28 +38,34 @@ def generate_status_page(metadata_supplied, wake_up_time, status_path):
     </script>
 </head>
 <body>\n""")
-            statusfile.write("<p>Next wakeup due at %s</p>\n" % wake_up_time.isoformat())
+            status_file.write("<p>Next wakeup due at %s</p>\n" % wake_up_time.isoformat())
 
-            statusfile.write("<p>Last events:</p>\n<ol>\n")
+            if output_png_time:
+                status_file.write("<p>Last image update at %s</p>\n" % output_png_time.isoformat())
+
+            status_file.write("<p>Last events:</p>\n<ol>\n")
 
             events = metadata_supplied.findall('./client/log')
 
             for ev in events[:-6:-1]:  # iterate back over the last five
-                statusfile.write("""<li>{time}: {reason} - {battery}%</li>\n""".format(time=ev.attrib["time"],
+                status_file.write("""<li>{time}: {reason} - {battery}%</li>\n""".format(time=ev.attrib["time"],
                                                                                      reason=ev.attrib["reset"],
                                                                                      battery=ev.attrib["battery"]))
 
             # draw a graph
-            chart = generate_chart(14, events)
+            chart = generate_chart(28, events)
 
-            statusfile.write("</ol>\n<br /><figure>\n%s</figure>\n</body>\n</html>" %
+            status_file.write("</ol>\n<br /><figure>\n%s</figure>\n" %
                              chart.render(disable_xml_declaration=True))
+
+            status_file.write("""<img src="data.png" height="300" width="400"/></body>\n</html>
+            """)
 
     except (IOError, KeyError):
         logging.exception("Failed to generate status page at %s", status_path)
 
 
-def generate_chart(days, events):
+def generate_chart(days: int, events: ET) -> pygal.DateTimeLine:
     """
     Generate a nice SVG chart in Pygal for the last N days of events
     :param days:
@@ -74,9 +86,10 @@ def generate_chart(days, events):
     conf.style = LightColorizedStyle
     conf.legend_at_bottom = True
     conf.show_minor_x_labels = True
+    conf.x_labels = map(str, range(0, 101, 10))
     conf.tooltip_border_radius = 5
     conf.truncate_label = 11  # Just show the date, not the time
-    conf.x_labels = [datetime.date.today() - datetime.timedelta(days=x) for x in range(days, -1, -2)]
+    conf.x_labels = [datetime.date.today() - datetime.timedelta(days=x) for x in range(days, -1, -7)]
     # conf.interpolate = "hermite"
 
     # Generate the chart
@@ -84,10 +97,11 @@ def generate_chart(days, events):
     chart.title = "Client logging"
     chart.add("Battery", charge_pts)
     chart.add("Screen temp", screen_pts)
+    chart.range = [0,100]
     return chart
 
 
-def print_time(dt):
+def print_time(dt: datetime.datetime) -> str:
     """
     Kept forgetting the strftime format I wanted, save it here
     """
@@ -112,7 +126,6 @@ SERVER_METADATA = "server.xml"
 SERVER_STATUS = "status.html"
 OUTPUT_EPD = "data.bin"
 OUTPUT_PNG = "data.png"
-RRD_PATH = "info.rrd"
 
 # Are these constants?
 london = pytz.timezone("Europe/London")
@@ -348,4 +361,9 @@ if __name__ == "__main__":
         wake_up_time_gmt = next_wake.astimezone(gmt)
 
     # Now done regardless
-    generate_status_page(metadata, wake_up_time_gmt, server_status_path)
+    png_create_time = None
+    try:
+        png_create_time = datetime.datetime.fromtimestamp(os.path.getmtime(output_png_path))
+    except OSError:
+        pass
+    generate_status_page(metadata, wake_up_time_gmt, server_status_path, png_create_time)
