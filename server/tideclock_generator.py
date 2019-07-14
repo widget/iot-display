@@ -210,7 +210,7 @@ if __name__ == "__main__":
 
     # Load tides
     tides_node = metadata.find('./server/tides')
-    if not tides_node:
+    if len(tides_node) == 0:
         logging.info("Creating new tides node")
         tides_node = ET.SubElement(server_node, "tides")
 
@@ -284,7 +284,6 @@ if __name__ == "__main__":
             weather = None
         except Exception as e:
             logging.exception("Failed to fetch weather information")
-            weather = None
 
         d = None
         if len(future_tides) >= 2:

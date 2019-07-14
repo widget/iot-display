@@ -1,5 +1,7 @@
+from typing import Optional
+
 import requests
-import xml.etree.ElementTree as ET
+from lxml import etree
 
 
 class Weather(object):
@@ -65,8 +67,9 @@ class Weather(object):
         if rsp.status_code != 200:
             raise RuntimeError("Bad response from Met Office for land data: %d" % rsp.status_code)
 
-        self.land = ET.fromstring(rsp.text)
+        self.land = etree.fromstring(rsp.content)
         if self.land.find('DV/Location/Period[1]/Rep[1]') is None:
+            self.land = None
             raise ValueError("Warning: no final weather data found, printing response: " + rsp.text)
 
     def get_wind_speed(self):
@@ -156,15 +159,27 @@ class Weather(object):
         if rsp.status_code != 200:
             raise RuntimeError("Bad response from Met Office for marine data: %d" % rsp.status_code)
 
-        self.marine = ET.fromstring(rsp.text)
+        self.marine = etree.fromstring(rsp.content)
         if self.marine.find('DV/Location/Period[last()]/Rep[last()]') is None:
-            raise ValueError("Warning: no final weather data found, printing response: " + rsp.text)
+            self.marine = None
+            raise ValueError("Warning: no final weather data found, printing response: " + self.marine.text)
 
-    def get_sea_temp(self):
-        return float(self.marine.find('DV/Location/Period[last()]/Rep[last()]').attrib["St"])
+    @property
+    def onshore(self) -> bool:
+        return not self.land is None
 
-    def get_wave_height(self):
-        return float(self.marine.find('DV/Location/Period[last()]/Rep[last()]').attrib["Wh"])
+    @property
+    def offshore(self) -> bool:
+        return not self.marine is None
 
-    def get_wave_period(self):
-        return float(self.marine.find('DV/Location/Period[last()]/Rep[last()]').attrib["Wp"])
+    def get_sea_temp(self) -> Optional[float]:
+        if self.marine:
+            return float(self.marine.find('DV/Location/Period[last()]/Rep[last()]').attrib["St"])
+
+    def get_wave_height(self) -> Optional[float]:
+        if self.marine:
+            return float(self.marine.find('DV/Location/Period[last()]/Rep[last()]').attrib["Wh"])
+
+    def get_wave_period(self) -> Optional[float]:
+        if self.marine:
+            return float(self.marine.find('DV/Location/Period[last()]/Rep[last()]').attrib["Wp"])

@@ -96,23 +96,26 @@ class DisplayRenderer(object):
 
         if self.weather:
 
-            # Wind direction as reported is where it's blowing FROM of course
-            wind_dir = (self.weather.get_wind_direction()+180) % 360
-            pos = (265, 100)
+            if self.weather.onshore:
+                # Wind direction as reported is where it's blowing FROM of course
+                wind_dir = (self.weather.get_wind_direction()+180) % 360
+                pos = (265, 100)
 
-            if wind_dir < 180:
-                # Jiggle the centre based on direction so we take up less space
-                pos = (250, 100)
-            self.draw_wind(pos, (pos[0]+60, pos[1]+60),
-                           "%d" % int(self.weather.get_wind_speed()),
-                           wind_dir)
+                if wind_dir < 180:
+                    # Jiggle the centre based on direction so we take up less space
+                    pos = (250, 100)
+                self.draw_wind(pos, (pos[0]+60, pos[1]+60),
+                               "%d" % int(self.weather.get_wind_speed()),
+                               wind_dir)
 
-            msg = "Land: %.1f°C\nSea: %.1f°C" % (self.weather.get_temperature(),
-                                                  self.weather.get_sea_temp())
-            self.draw.multiline_text((320, 90), msg, font=self.small_font, align="right")
+                msg = "Land: %.1f°C" % self.weather.get_temperature()
 
-            msg = "Waves: %.1fm\nUV: %s" % (self.weather.get_wave_height(), self.weather.get_uv())
-            self.draw.multiline_text((270, 165), msg, font=self.small_font)
+            if self.weather.offshore:
+                msg += "\nSea: %.1f°C" % self.weather.get_sea_temp()
+                self.draw.multiline_text((320, 90), msg, font=self.small_font, align="right")
+
+                msg = "Waves: %.1fm\nUV: %s" % (self.weather.get_wave_height(), self.weather.get_uv())
+                self.draw.multiline_text((270, 165), msg, font=self.small_font)
 
     def draw_battery(self, pos):
         """
