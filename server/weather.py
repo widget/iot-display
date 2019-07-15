@@ -6,22 +6,22 @@ from lxml import etree
 
 class Weather(object):
     COMPASS = {
-        "N" : 0,
-        "NNE" : 22,
-        "NE" : 45,
-        "ENE" : 67,
-        "E" : 90,
-        "ESE" : 112,
-        "SE" : 135,
-        "SSE" : 147,
-        "S" : 180,
-        "SSW" : 202,
-        "SW" : 225,
-        "WSW" : 247,
-        "W" : 270,
-        "WNW" : 292,
+        "N": 0,
+        "NNE": 22,
+        "NE": 45,
+        "ENE": 67,
+        "E": 90,
+        "ESE": 112,
+        "SE": 135,
+        "SSE": 147,
+        "S": 180,
+        "SSW": 202,
+        "SW": 225,
+        "WSW": 247,
+        "W": 270,
+        "WNW": 292,
         "NW": 315,
-        "NNW" : 337,
+        "NNW": 337,
     }
 
     def __init__(self, key):
@@ -112,7 +112,7 @@ class Weather(object):
             val_str = "Medium"
         elif val <= 7:
             val_str = "High!"
-        elif val <=10:
+        elif val <= 10:
             val_str = "Very high!"
         else:
             val_str = "EXTREME"
@@ -154,7 +154,8 @@ class Weather(object):
             "res": "hourly",
             "key": self.api_key
         }
-        rsp = sess.get("http://datapoint.metoffice.gov.uk/public/data/val/wxmarineobs/all/xml/%s" % weather_id, params=opts)
+        rsp = sess.get("http://datapoint.metoffice.gov.uk/public/data/val/wxmarineobs/all/xml/%s" % weather_id,
+                       params=opts)
 
         if rsp.status_code != 200:
             raise RuntimeError("Bad response from Met Office for marine data: %d" % rsp.status_code)
@@ -166,11 +167,11 @@ class Weather(object):
 
     @property
     def onshore(self) -> bool:
-        return not self.land is None
+        return self.land is not None
 
     @property
     def offshore(self) -> bool:
-        return not self.marine is None
+        return self.marine is not None
 
     def get_sea_temp(self) -> Optional[float]:
         if self.marine:

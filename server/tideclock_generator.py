@@ -31,7 +31,7 @@ def generate_status_page(metadata_supplied: ET,
         with open(status_path, "w") as status_file:
             logging.debug("Generating status page at %s", status_path)
             status_file.write("""<!doctype html>
-<html lang="en">
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
 <head>
     <title>Current status</title>
     <script type="text/javascript" src="http://kozea.github.com/pygal.js/latest/pygal-tooltips.min.js">
@@ -49,14 +49,14 @@ def generate_status_page(metadata_supplied: ET,
 
             for ev in events[:-6:-1]:  # iterate back over the last five
                 status_file.write("""<li>{time}: {reason} - {battery}%</li>\n""".format(time=ev.attrib["time"],
-                                                                                     reason=ev.attrib["reset"],
-                                                                                     battery=ev.attrib["battery"]))
+                                                                                        reason=ev.attrib["reset"],
+                                                                                        battery=ev.attrib["battery"]))
 
             # draw a graph
             chart = generate_chart(28, events)
 
             status_file.write("</ol>\n<br /><figure>\n%s</figure>\n" %
-                             chart.render(disable_xml_declaration=True))
+                              chart.render(disable_xml_declaration=True))
 
             status_file.write("""<img src="data.png" height="300" width="400"/></body>\n</html>
             """)
@@ -97,7 +97,7 @@ def generate_chart(days: int, events: ET) -> pygal.DateTimeLine:
     chart.title = "Client logging"
     chart.add("Battery", charge_pts)
     chart.add("Screen temp", screen_pts)
-    chart.range = [0,100]
+    chart.range = [0, 100]
     return chart
 
 
@@ -112,11 +112,13 @@ class DateTimeEncoder(json.JSONEncoder):
     """
     JSON encoder that overloads the datetime format to output as a string
     """
+
     def default(self, o):
         if isinstance(o, datetime.datetime):
             return o.isoformat()
 
         return json.JSONEncoder.default(self, o)
+
 
 # Constants
 SLACK = datetime.timedelta(minutes=15)
