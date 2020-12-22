@@ -1,9 +1,17 @@
 version: "3.9"
 services:
   updater:
-    build: .
+    build: updater
+    restart: "no"
     volumes:
       - data:/data
+  hoster:
+    build: comms
+    restart: on-failure
+    volumes:
+      - data:/static
+    ports:
+    - 5000:5000
 
 volumes:
   data:

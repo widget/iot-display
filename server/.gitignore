@@ -1,0 +1,9 @@
+*.pyc
+*.envrc
+
+# live data
+mine.cfg
+server.xml
+metadata.json
+data.bin
+data.png
