@@ -1,8 +1,8 @@
 Tide Clock: Server-side code
 =====
 
-This generates images for the tide clock micropython client.  
-It is also starting to graph the data back from the client with RRDtool. 
+This generates images for the tide clock micropython client.
+It is also starting to graph the data back from the client with RRDtool.
 
 Overview
 --------
