@@ -1,0 +1,14 @@
+version: "3.9"
+services:
+  updater:
+    build: .
+    volumes:
+      - data:/data
+
+volumes:
+  data:
+    driver: local
+    driver_opts:
+      o: bind
+      type: none
+      device: ./data

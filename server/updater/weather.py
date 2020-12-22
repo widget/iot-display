@@ -1,8 +1,11 @@
 from typing import Optional
-
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
 import requests
 from lxml import etree
+import warnings
 
+warnings.simplefilter(action='ignore', category=FutureWarning)
 
 class Weather(object):
     COMPASS = {
@@ -163,11 +166,11 @@ class Weather(object):
         self.marine = etree.fromstring(rsp.content)
         if self.marine.find('DV/Location/Period[last()]/Rep[last()]') is None:
             self.marine = None
-            raise ValueError("Warning: no final weather data found, printing response: " + self.marine.text)
+            raise ValueError("Warning: no final weather data found, printing response: " + rsp.text)
 
     @property
     def onshore(self) -> bool:
-        return self.land is not None
+        return self.land is not None  # this is continuing to issue "use 'is not None'" warnings?
 
     @property
     def offshore(self) -> bool:

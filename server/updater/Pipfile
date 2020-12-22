@@ -1,0 +1,19 @@
+[[source]]
+name = "pypi"
+url = "https://pypi.org/simple"
+verify_ssl = true
+
+[dev-packages]
+
+[packages]
+beautifulsoup4 = "~=4.6"
+bitstring = "~=3.1"
+lxml = "~=4.2"
+pyephem = "~=3.7"
+pytz = "*"
+requests = "~=2.19"
+pygal = "~=2.4"
+Pillow = "~=5.0"
+
+[requires]
+python_version = "3.8"
