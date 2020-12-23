@@ -19,4 +19,8 @@ COPY ./*.py /root/
 COPY ./run.sh /root/
 WORKDIR /root
 
+ENV PYTHONUNBUFFERED=1
+
+ENTRYPOINT ["sh", "run.sh"]
+
 CMD ["sh", "run.sh"]

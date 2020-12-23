@@ -148,7 +148,7 @@ if __name__ == "__main__":
                         level=logging.DEBUG if args.verbose else logging.INFO)
 
     if not os.path.exists(args.dir):
-        print("Non-existent output directory")
+        logging.fatal("Non-existent output directory")
         sys.exit(1)
     else:
         logging.debug("Using " + args.dir)
@@ -186,7 +186,7 @@ if __name__ == "__main__":
     if os.path.exists(server_metadata_path):
         metadata = ET.parse(server_metadata_path)
     else:
-        logging.debug("No old metadata to load")
+        logging.warning("No old metadata to load")
 
     server_node = metadata.find("./server")
     if server_node is None:
@@ -239,7 +239,7 @@ if __name__ == "__main__":
         tides_downloaded = []
         if len(valid_tides) < 7:
             try:
-                logging.debug("Fetching new tides")
+                logging.info("Fetching new tides")
 
                 # TODO error handle here
                 feed_loc = config["Tides"]["Feed"]
@@ -250,7 +250,7 @@ if __name__ == "__main__":
             except ConnectionError:
                 logging.error("Failed to fetch tides")
         else:
-            # print("Using cached data")
+            logging.debug("Using cached data")
             tides_downloaded = loaded_tides
 
         location = (config.getfloat("Geo", "Latitude"),
@@ -263,7 +263,7 @@ if __name__ == "__main__":
 
         if len(tides_downloaded) == 0:
             # TODO handle error
-            pass
+            logging.warning("No tides remaining")
 
         future_tides = [tide for tide in tides_downloaded if tide.time > current_local]
         today_tides = [tide for tide in tides_downloaded if tide.time > day_start]
@@ -282,6 +282,7 @@ if __name__ == "__main__":
             weather = Weather(config.get("Weather", "ApiKey"))
             weather.fetch_land_observ(config.get("Weather", "LandLocation"))
             weather.fetch_sea_observ(config.get("Weather", "SeaLocation"))
+            logging.info("Loaded weather")
         except configparser.NoOptionError as e:
             weather = None
         except Exception as e:
@@ -307,15 +308,6 @@ if __name__ == "__main__":
         for tide in tides_downloaded:
             tides_node.append(tide.to_xml())
 
-        # if args.min != -1:
-        #     # OVERRIDE TO NO MORE THAN FOUR HOURS
-        #     max_sleep = datetime.timedelta(minutes=args.min)
-        #     if wake_up_time_gmt > (current_local + max_sleep):
-        #         logging.info("Original wakeup of %s", print_time(wake_up_time_gmt))
-        #
-        #         wake_up_time_gmt = current_local + max_sleep
-        #         logging.info("Now %s (%d min)", (print_time(wake_up_time_gmt), args.min))
-
         # Now the time for the client to wakeup
         wake_up_time_gmt += SLACK
 
@@ -337,17 +329,20 @@ if __name__ == "__main__":
                 wakeup_log = ET.SubElement(client_node, "requested")  # as in when the client should have come in
                 wakeup_log.attrib["time"] = wut
 
+        logging.info("Writing back metadata XML")
         metadata.write(server_metadata_path, xml_declaration=True)
 
         logging.debug("Next client wakeup is %s", wake_up_time_gmt)
 
         client_metadata = {"wakeup": wake_up_time_gmt.timetuple()}
 
+        logging.info("Writing client json")
         with open(client_metadata_path, "w") as meta_out:
             json.dump(client_metadata, meta_out)
 
         # Actually save the pic
         if d:
+            logging.info("Creating forecast images")
             d.render()
             d.save(output_png_path)
 
@@ -355,16 +350,19 @@ if __name__ == "__main__":
             e.save(output_epd_path)
 
         else:
-            logging.info("Skipping render, no RSS data")
+            logging.warning("Skipping render, no RSS data")
     else:
 
-        logging.debug("Waking too early (not yet %s)", (next_wake - SLACK))
+        logging.info("Waking too early (not yet %s)", (next_wake - SLACK))
         wake_up_time_gmt = next_wake.astimezone(gmt)
 
-    # Now done regardless
+    # Now generate the status page anyway because the client could have connected
     png_create_time = None
     try:
         png_create_time = datetime.datetime.fromtimestamp(os.path.getmtime(output_png_path))
+        status_create_time = datetime.datetime.fromtimestamp(os.path.getmtime(server_status_path))
+        if status_create_time < png_create_time:
+            logging.info("Generating new status page")
+            generate_status_page(metadata, wake_up_time_gmt, server_status_path, png_create_time)
     except OSError:
-        pass
-    generate_status_page(metadata, wake_up_time_gmt, server_status_path, png_create_time)
+        logging.exception("Cannot generate status page, no PNG to check")
