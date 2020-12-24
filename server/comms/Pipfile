@@ -10,4 +10,4 @@ Flask = "~=1.1"
 lxml = "~=4.2"
 
 [requires]
-python_version = "3.8"
+python_version = "3.6"

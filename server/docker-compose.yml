@@ -5,7 +5,7 @@ services:
       driver: journald
     build: updater
     restart: "no"
-    command: "-c /data/mine.cfg --min 60"
+    command: "-c /data/mine.cfg"
     stop_signal: SIGINT
     volumes:
       - data:/data
