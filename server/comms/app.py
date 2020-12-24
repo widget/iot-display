@@ -2,6 +2,7 @@ from flask import Flask, request, abort
 from lxml import etree
 from datetime import datetime
 from logging.config import dictConfig
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 dictConfig({
     'version': 1,
@@ -18,7 +19,10 @@ dictConfig({
         'handlers': ['wsgi']
     }
 })
-app = Flask(__name__, static_folder="/static")
+
+# Create the application, then warn it that it's behind a proxy
+app = Flask("iot comms", static_folder="/static")
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_host=1)
 
 SERVER_METADATA = "/static/server.xml"
 MAX_ENTRIES = 1000
