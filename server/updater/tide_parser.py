@@ -23,17 +23,18 @@ class TideParser(object):
 
         self.url = "http://www.ukho.gov.uk/easytide/EasyTide/ShowPrediction.aspx"
 
-        self.params = {"PortID": location_id,
-                       "PredictionLength": "3",
-                       "DaylightSavingOffset": "0",
-                       "PrinterFriendly": "true",
-                       "HeightUnits": "0",
-                       "GraphSize": "10"
-                       }
+        self.params = {
+            "PortID": location_id,
+            "PredictionLength": "3",
+            "DaylightSavingOffset": "0",
+            "PrinterFriendly": "true",
+            "HeightUnits": "0",
+            "GraphSize": "10",
+        }
 
     def fetch(self, debug=False):
         sess = requests.Session()
-        rsp = sess.get(self.url,params=self.params)
+        rsp = sess.get(self.url, params=self.params)
 
         if rsp.status_code == requests.codes.ok:
             if debug:
@@ -55,9 +56,12 @@ class TideParser(object):
             ret = []
 
             for table in table_list:
-                table_date = table.find('th', 'HWLWTableHeaderCell').text
-                tide_types = [x.text.strip() for x in table.find_all('th', 'HWLWTableHWLWCellPrintFriendly')]
-                times_heights = [x.text.strip() for x in table.find_all('td')]
+                table_date = table.find("th", "HWLWTableHeaderCell").text
+                tide_types = [
+                    x.text.strip()
+                    for x in table.find_all("th", "HWLWTableHWLWCellPrintFriendly")
+                ]
+                times_heights = [x.text.strip() for x in table.find_all("td")]
 
                 midlen = len(times_heights) >> 1
                 tide_times = times_heights[0:midlen]
@@ -65,11 +69,19 @@ class TideParser(object):
                 types = ["Low" if x == "LW" else "High" for x in tide_types]
                 times = []
                 for time in tide_times:
-                    if "1 Jan" in table_date and current_month == 12 and not first_in_next_year:
+                    if (
+                        "1 Jan" in table_date
+                        and current_month == 12
+                        and not first_in_next_year
+                    ):
                         # As there's no year information we have to bump forward
                         year += 1
                         first_in_next_year = True
-                    times.append(datetime.datetime.strptime(str(year) + ", " + table_date + " " + time, SILLY_FORMAT))
+                    times.append(
+                        datetime.datetime.strptime(
+                            str(year) + ", " + table_date + " " + time, SILLY_FORMAT
+                        )
+                    )
 
                 # Set to GMT, although when it's saved out, this is lost
                 gmt = pytz.timezone("GMT")

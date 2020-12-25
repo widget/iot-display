@@ -1,4 +1,3 @@
-
 """
 Class for managing EPD files and also generates them on the cmdline
 """
@@ -17,10 +16,10 @@ class EPDGenerator(object):
     """
 
     def __init__(self, surface):
-        if surface.mode == '1':
+        if surface.mode == "1":
             self.surface = surface
         else:
-            self.surface = surface.convert('1')
+            self.surface = surface.convert("1")
 
     @staticmethod
     def from_file(path):
@@ -62,10 +61,10 @@ class EPDGenerator(object):
 
         for byte in data:
             acc ^= byte
-            acc = ((acc >> 8) | (acc << 8)) & 0xffff
-            acc ^= ((acc & 0xff00) << 4) & 0xffff
+            acc = ((acc >> 8) | (acc << 8)) & 0xFFFF
+            acc ^= ((acc & 0xFF00) << 4) & 0xFFFF
             acc ^= (acc >> 8) >> 4
-            acc ^= (acc & 0xff00) >> 5
+            acc ^= (acc & 0xFF00) >> 5
         return acc
 
     def save(self, path):
@@ -74,20 +73,23 @@ class EPDGenerator(object):
         :param path:
         :return:
         """
-        with open(path, 'wb') as output:
+        with open(path, "wb") as output:
             # Invert it on the way for the display
-            img_gen = (x^0xff for x in (self.surface.getdata()))
+            img_gen = (x ^ 0xFF for x in (self.surface.getdata()))
             # Get header
-            header = struct.pack(">B2H2B", 0x33, self.surface.size[0], self.surface.size[1], 1, 0) + (b"\x00"*9)
+            header = struct.pack(
+                ">B2H2B", 0x33, self.surface.size[0], self.surface.size[1], 1, 0
+            ) + (b"\x00" * 9)
             # Splat out
             output.write(header + BitStream(img_gen).bytes)
 
 
 if __name__ == "__main__":
     import argparse
-    parser = argparse.ArgumentParser(description='Convert a directory of PNGs to EPDs')
-    parser.add_argument('-s','--source', help='Source directory')
-    parser.add_argument('-d','--dest', help='Destination directory')
+
+    parser = argparse.ArgumentParser(description="Convert a directory of PNGs to EPDs")
+    parser.add_argument("-s", "--source", help="Source directory")
+    parser.add_argument("-d", "--dest", help="Destination directory")
 
     args = parser.parse_args()
 

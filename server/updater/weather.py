@@ -1,11 +1,13 @@
 from typing import Optional
 import warnings
-warnings.simplefilter(action='ignore', category=FutureWarning)
+
+warnings.simplefilter(action="ignore", category=FutureWarning)
 import requests
 from lxml import etree
 import warnings
 
-warnings.simplefilter(action='ignore', category=FutureWarning)
+warnings.simplefilter(action="ignore", category=FutureWarning)
+
 
 class Weather(object):
     COMPASS = {
@@ -61,26 +63,31 @@ class Weather(object):
         # text is minutes after midnight
 
         sess = requests.Session()
-        opts = {
-            "res": "3hourly",
-            "key": self.api_key
-        }
-        rsp = sess.get("http://datapoint.metoffice.gov.uk/public/data/val/wxfcs/all/xml/%s" % weather_id, params=opts)
+        opts = {"res": "3hourly", "key": self.api_key}
+        rsp = sess.get(
+            "http://datapoint.metoffice.gov.uk/public/data/val/wxfcs/all/xml/%s"
+            % weather_id,
+            params=opts,
+        )
 
         if rsp.status_code != 200:
-            raise RuntimeError("Bad response from Met Office for land data: %d" % rsp.status_code)
+            raise RuntimeError(
+                "Bad response from Met Office for land data: %d" % rsp.status_code
+            )
 
         self.land = etree.fromstring(rsp.content)
-        if self.land.find('DV/Location/Period[1]/Rep[1]') is None:
+        if self.land.find("DV/Location/Period[1]/Rep[1]") is None:
             self.land = None
-            raise ValueError("Warning: no final weather data found, printing response: " + rsp.text)
+            raise ValueError(
+                "Warning: no final weather data found, printing response: " + rsp.text
+            )
 
     def get_wind_speed(self):
         """
 
         :return: Wind speed (not gusts) in mph
         """
-        return float(self.land.find('DV/Location/Period[1]/Rep[1]').attrib["S"])
+        return float(self.land.find("DV/Location/Period[1]/Rep[1]").attrib["S"])
 
     def get_wind_direction(self):
         """
@@ -94,21 +101,21 @@ class Weather(object):
         Wind direction
         :return: 16 point compass direction as a string (e.g. WSW)
         """
-        return self.land.find('DV/Location/Period[1]/Rep[1]').attrib["D"]
+        return self.land.find("DV/Location/Period[1]/Rep[1]").attrib["D"]
 
     def get_temperature(self):
         """
 
         :return: Temperature in Celsius
         """
-        return float(self.land.find('DV/Location/Period[1]/Rep[1]').attrib["T"])
+        return float(self.land.find("DV/Location/Period[1]/Rep[1]").attrib["T"])
 
     def get_uv(self):
         """
         Get UV as WHO index (range is 1-8 for the UK)
         :return:
         """
-        val = int(self.land.find('DV/Location/Period[1]/Rep[1]').attrib["U"])
+        val = int(self.land.find("DV/Location/Period[1]/Rep[1]").attrib["U"])
         if val <= 2:
             val_str = "Low"
         elif val <= 5:
@@ -153,24 +160,30 @@ class Weather(object):
         # </SiteRep>
 
         sess = requests.Session()
-        opts = {
-            "res": "hourly",
-            "key": self.api_key
-        }
-        rsp = sess.get("http://datapoint.metoffice.gov.uk/public/data/val/wxmarineobs/all/xml/%s" % weather_id,
-                       params=opts)
+        opts = {"res": "hourly", "key": self.api_key}
+        rsp = sess.get(
+            "http://datapoint.metoffice.gov.uk/public/data/val/wxmarineobs/all/xml/%s"
+            % weather_id,
+            params=opts,
+        )
 
         if rsp.status_code != 200:
-            raise RuntimeError("Bad response from Met Office for marine data: %d" % rsp.status_code)
+            raise RuntimeError(
+                "Bad response from Met Office for marine data: %d" % rsp.status_code
+            )
 
         self.marine = etree.fromstring(rsp.content)
-        if self.marine.find('DV/Location/Period[last()]/Rep[last()]') is None:
+        if self.marine.find("DV/Location/Period[last()]/Rep[last()]") is None:
             self.marine = None
-            raise ValueError("Warning: no final weather data found, printing response: " + rsp.text)
+            raise ValueError(
+                "Warning: no final weather data found, printing response: " + rsp.text
+            )
 
     @property
     def onshore(self) -> bool:
-        return self.land is not None  # this is continuing to issue "use 'is not None'" warnings?
+        return (
+            self.land is not None
+        )  # this is continuing to issue "use 'is not None'" warnings?
 
     @property
     def offshore(self) -> bool:
@@ -178,12 +191,18 @@ class Weather(object):
 
     def get_sea_temp(self) -> Optional[float]:
         if self.marine:
-            return float(self.marine.find('DV/Location/Period[last()]/Rep[last()]').attrib["St"])
+            return float(
+                self.marine.find("DV/Location/Period[last()]/Rep[last()]").attrib["St"]
+            )
 
     def get_wave_height(self) -> Optional[float]:
         if self.marine:
-            return float(self.marine.find('DV/Location/Period[last()]/Rep[last()]').attrib["Wh"])
+            return float(
+                self.marine.find("DV/Location/Period[last()]/Rep[last()]").attrib["Wh"]
+            )
 
     def get_wave_period(self) -> Optional[float]:
         if self.marine:
-            return float(self.marine.find('DV/Location/Period[last()]/Rep[last()]').attrib["Wp"])
+            return float(
+                self.marine.find("DV/Location/Period[last()]/Rep[last()]").attrib["Wp"]
+            )

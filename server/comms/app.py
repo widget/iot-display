@@ -5,21 +5,24 @@ from datetime import datetime
 from logging.config import dictConfig
 from werkzeug.middleware.proxy_fix import ProxyFix
 
-dictConfig({
-    'version': 1,
-    'formatters': {'default': {
-        'format': '%(asctime)s %(levelname)s %(message)s',
-    }},
-    'handlers': {'wsgi': {
-        'class': 'logging.StreamHandler',
-        'stream': 'ext://flask.logging.wsgi_errors_stream',
-        'formatter': 'default'
-    }},
-    'root': {
-        'level': 'INFO',
-        'handlers': ['wsgi']
+dictConfig(
+    {
+        "version": 1,
+        "formatters": {
+            "default": {
+                "format": "%(asctime)s %(levelname)s %(message)s",
+            }
+        },
+        "handlers": {
+            "wsgi": {
+                "class": "logging.StreamHandler",
+                "stream": "ext://flask.logging.wsgi_errors_stream",
+                "formatter": "default",
+            }
+        },
+        "root": {"level": "INFO", "handlers": ["wsgi"]},
     }
-})
+)
 
 # Create the application, then warn it that it's behind a proxy
 app = Flask("iot comms", static_folder="/static")
@@ -30,7 +33,7 @@ SERVER_METADATA = "/static/server.xml"
 MAX_ENTRIES = 1000
 
 
-@app.route('/upload.php', methods=['POST'])
+@app.route("/upload.php", methods=["POST"])
 def hello_world():
     battery = request.form.get("battery")
     reset = request.form.get("reset")
@@ -85,25 +88,25 @@ def hello_world():
     return ""
 
 
-@app.route('/data.bin')
+@app.route("/data.bin")
 def data_bin():
     app.logger.debug("Binary image requested")
-    return app.send_static_file('data.bin')
+    return app.send_static_file("data.bin")
 
 
-@app.route('/data.png')
+@app.route("/data.png")
 def data_png():
     app.logger.debug("Preview requested")
-    return app.send_static_file('data.png')
+    return app.send_static_file("data.png")
 
 
-@app.route('/status.html')
+@app.route("/status.html")
 def send_status():
     app.logger.debug("Status page")
-    return app.send_static_file('status.html')
+    return app.send_static_file("status.html")
 
 
-@app.route('/metadata.json')
+@app.route("/metadata.json")
 def send_metadata():
     app.logger.debug("Metadata")
-    return app.send_static_file('metadata.json')
+    return app.send_static_file("metadata.json")

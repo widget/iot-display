@@ -7,7 +7,7 @@ import pytz
 class EphemerisHandler(object):
     def __init__(self, latlong_dd):
         self.observer = ephem.Observer()
-        self.observer.name = 'Somewhere'
+        self.observer.name = "Somewhere"
         self.observer.lat = rad(latlong_dd[0])  # lat/long in decimal degrees
         self.observer.long = rad(latlong_dd[1])
         self.observer.elevation = 0
@@ -16,7 +16,7 @@ class EphemerisHandler(object):
 
         self.observer.pressure = 1000
         self.gmt = pytz.timezone("GMT")
-        #self.observer.horizon = 0
+        # self.observer.horizon = 0
 
     def calculate_moon_phase(self):
 
@@ -34,9 +34,9 @@ class EphemerisHandler(object):
         symbol = lunation * 26
         # print("Lunation as a 1/26 is: %f" % symbol)
         if symbol < 0.5 or symbol > 25.5:
-            symbol = '*'  # new moon
+            symbol = "*"  # new moon
         else:
-            symbol = chr(ord('A') + int(symbol + 0.5) - 1)
+            symbol = chr(ord("A") + int(symbol + 0.5) - 1)
         return symbol
 
         # print(ephem.localtime(g.date).time(), deg(m.alt),deg(m.az),
@@ -49,7 +49,9 @@ class EphemerisHandler(object):
         :return: ALWAYS IN GMT
         """
         s = ephem.Sun()
-        return self.gmt.localize(self.observer.next_rising(s, use_center=False).datetime())
+        return self.gmt.localize(
+            self.observer.next_rising(s, use_center=False).datetime()
+        )
 
     def calculate_sunset(self):
         """
@@ -57,4 +59,6 @@ class EphemerisHandler(object):
         :return: ALWAYS IN GMT
         """
         s = ephem.Sun()
-        return self.gmt.localize(self.observer.next_setting(s, use_center=False).datetime())
+        return self.gmt.localize(
+            self.observer.next_setting(s, use_center=False).datetime()
+        )

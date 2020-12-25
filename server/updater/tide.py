@@ -1,10 +1,9 @@
-
 from lxml import etree
 
 
 class Tide(object):
     def __init__(self, tide_time, tide_type, height):
-        self.time = tide_time # In GMT
+        self.time = tide_time  # In GMT
         self.type = tide_type
         self.height = height
 
