@@ -212,7 +212,7 @@ if __name__ == "__main__":
 
     # Load tides
     tides_node = metadata.find('./server/tides')
-    if len(tides_node) == 0:
+    if not tides_node:
         logging.info("Creating new tides node")
         tides_node = ET.SubElement(server_node, "tides")
 
@@ -311,10 +311,6 @@ if __name__ == "__main__":
         # Now the time for the client to wakeup
         wake_up_time_gmt += SLACK
 
-        # Don't beacon in when the cronjob is running, defaults on a ten minute boundary
-        if not (wake_up_time_gmt.minute % 10):
-            wake_up_time_gmt += datetime.timedelta(minutes=2)
-
         # Remove microseconds
         wake_up_time_gmt = wake_up_time_gmt.replace(microsecond=0)
         # isoformat puts out tz info in the wrong format to be able to bloody load it again
@@ -332,7 +328,7 @@ if __name__ == "__main__":
         logging.info("Writing back metadata XML")
         metadata.write(server_metadata_path, xml_declaration=True)
 
-        logging.debug("Next client wakeup is %s", wake_up_time_gmt)
+        logging.info("Next client wakeup requested %s", wake_up_time_gmt)
 
         client_metadata = {"wakeup": wake_up_time_gmt.timetuple()}
 

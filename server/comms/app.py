@@ -1,5 +1,8 @@
 from flask import Flask, request, abort
 from lxml import etree
+import pytz
+from tzlocal import get_localzone
+
 from datetime import datetime
 from logging.config import dictConfig
 from werkzeug.middleware.proxy_fix import ProxyFix
@@ -7,7 +10,7 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 dictConfig({
     'version': 1,
     'formatters': {'default': {
-        'format': '[%(asctime)s] %(levelname)s in %(module)s: %(message)s',
+        'format': '%(asctime)s %(levelname)s %(message)s',
     }},
     'handlers': {'wsgi': {
         'class': 'logging.StreamHandler',
@@ -23,6 +26,7 @@ dictConfig({
 # Create the application, then warn it that it's behind a proxy
 app = Flask("iot comms", static_folder="/static")
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_host=1)
+tz = get_localzone()
 
 SERVER_METADATA = "/static/server.xml"
 MAX_ENTRIES = 1000
@@ -52,7 +56,7 @@ def hello_world():
         app.logger.debug("Loaded existing XML")
     except OSError:
         app.logger.exception("Can't open XML file")
-        metadata = etree.ElementTree(ET.Element("display"))
+        metadata = etree.ElementTree(etree.Element("display"))
 
     # Get the client node
     client_node = metadata.find("./client")
@@ -68,13 +72,16 @@ def hello_world():
         for _ in range(to_delete):
             client_node.remove(client_node.getchildren()[0])
 
+    # Set timezone on the time
+    now = tz.localize(datetime.now())
+
     # Store current values
     latest = etree.SubElement(client_node, "log")
     latest.attrib["battery"] = battery
     latest.attrib["reset"] = reset
     latest.attrib["screen"] = screen
     latest.attrib["ip"] = request.remote_addr
-    latest.attrib["time"] = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+    latest.attrib["time"] = now.strftime("%Y-%m-%dT%H:%M:%S")
 
     metadata.write(SERVER_METADATA, xml_declaration=True, pretty_print=True)
     return ""
