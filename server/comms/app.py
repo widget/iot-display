@@ -1,8 +1,6 @@
 from flask import Flask, request, abort
 from lxml import etree
-import pytz
 from tzlocal import get_localzone
-
 from datetime import datetime
 from logging.config import dictConfig
 from werkzeug.middleware.proxy_fix import ProxyFix
@@ -89,23 +87,23 @@ def hello_world():
 
 @app.route('/data.bin')
 def data_bin():
-    app.logger.info("Binary image requested")
+    app.logger.debug("Binary image requested")
     return app.send_static_file('data.bin')
 
 
 @app.route('/data.png')
 def data_png():
-    app.logger.info("Preview requested")
+    app.logger.debug("Preview requested")
     return app.send_static_file('data.png')
 
 
 @app.route('/status.html')
 def send_status():
-    app.logger.info("Status page")
+    app.logger.debug("Status page")
     return app.send_static_file('status.html')
 
 
 @app.route('/metadata.json')
 def send_metadata():
-    app.logger.info("Metadata")
+    app.logger.debug("Metadata")
     return app.send_static_file('metadata.json')
