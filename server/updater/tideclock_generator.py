@@ -7,11 +7,12 @@ import json
 import logging
 import os.path
 import sys
-import xml.etree.ElementTree as ET
+from lxml import etree
 from typing import TextIO, Optional
 
 import pygal
 import pytz
+from tzlocal import get_localzone
 from pygal.style import LightColorizedStyle
 
 from display_renderer import DisplayRenderer
@@ -21,10 +22,19 @@ from tide_parser import TideParser
 from weather import Weather
 
 
-def generate_status_page(metadata_supplied: ET,
+def generate_status_page(metadata_supplied: etree.ElementTree,
                          wake_up_time: datetime.datetime,
                          status_path: str,
                          output_png_time: Optional[datetime.datetime]) -> None:
+    """
+    Creates an HTML status page of what's currently going on:
+
+    * When the next wakeup is due by the display
+    * When we last updated the PNG (checking the file timestamp
+    * The last five beacons in plain text
+    * A graph of responses
+    * The current PNG
+    """
     try:
         status_file: TextIO
 
@@ -65,7 +75,7 @@ def generate_status_page(metadata_supplied: ET,
         logging.exception("Failed to generate status page at %s", status_path)
 
 
-def generate_chart(days: int, events: ET) -> pygal.DateTimeLine:
+def generate_chart(days: int, events: etree.ElementTree) -> pygal.DateTimeLine:
     """
     Generate a nice SVG chart in Pygal for the last N days of events
     :param days:
@@ -90,7 +100,6 @@ def generate_chart(days: int, events: ET) -> pygal.DateTimeLine:
     conf.tooltip_border_radius = 5
     conf.truncate_label = 11  # Just show the date, not the time
     conf.x_labels = [datetime.date.today() - datetime.timedelta(days=x) for x in range(days, -1, -7)]
-    # conf.interpolate = "hermite"
 
     # Generate the chart
     chart = pygal.DateTimeLine(conf)
@@ -102,18 +111,15 @@ def generate_chart(days: int, events: ET) -> pygal.DateTimeLine:
 
 
 def print_time(dt: datetime.datetime) -> str:
-    """
-    Kept forgetting the strftime format I wanted, save it here
-    """
+    """Kept forgetting the strftime format I wanted, save it here"""
     return dt.strftime("%Y-%m-%dT%H:%M:%S")
 
 
 class DateTimeEncoder(json.JSONEncoder):
-    """
-    JSON encoder that overloads the datetime format to output as a string
-    """
+    """JSON encoder that overloads the datetime format to output as a string"""
 
     def default(self, o):
+        """Only change datetimes"""
         if isinstance(o, datetime.datetime):
             return o.isoformat()
 
@@ -129,8 +135,7 @@ SERVER_STATUS = "status.html"
 OUTPUT_EPD = "data.bin"
 OUTPUT_PNG = "data.png"
 
-# Are these constants?
-london = pytz.timezone("Europe/London")
+our_tz = get_localzone()
 gmt = pytz.timezone("GMT")
 
 if __name__ == "__main__":
@@ -179,22 +184,22 @@ if __name__ == "__main__":
                                                       current_local.time())
             logging.info("Hard-coding time to %s", current_local)
 
-    current_local = london.localize(current_local)
-    day_start = london.localize(datetime.datetime.combine(current_local.today(), datetime.time(0)))
+    current_local = our_tz.localize(current_local)
+    day_start = our_tz.localize(datetime.datetime.combine(current_local.today(), datetime.time(0)))
 
-    metadata = ET.ElementTree(ET.Element("display"))
+    metadata = etree.ElementTree(etree.Element("display"))
     if os.path.exists(server_metadata_path):
-        metadata = ET.parse(server_metadata_path)
+        metadata = etree.parse(server_metadata_path)
     else:
         logging.warning("No old metadata to load")
 
     server_node = metadata.find("./server")
     if server_node is None:
-        server_node = ET.SubElement(metadata.getroot(), "server")
+        server_node = etree.SubElement(metadata.getroot(), "server")
 
     wakeup_node = metadata.find('server/wake')
     if wakeup_node is None:  # can't use if not?
-        wakeup_node = ET.SubElement(server_node, "wake")
+        wakeup_node = etree.SubElement(server_node, "wake")
 
     next_wake = None
     try:
@@ -202,19 +207,19 @@ if __name__ == "__main__":
             timeval = wakeup_node.attrib["time"]
             if '.' in timeval:
                 timeval = timeval.split('.')[0]
-            next_wake = london.localize(datetime.datetime.strptime(timeval, "%Y-%m-%dT%H:%M:%S"))
+            next_wake = our_tz.localize(datetime.datetime.strptime(timeval, "%Y-%m-%dT%H:%M:%S"))
     except ValueError:
         logging.error("Failed to read date from wakeup node: '%s'", wakeup_node.attrib["time"])
 
     if not next_wake:
         logging.info("Using default wake time")
-        next_wake = london.localize(datetime.datetime(year=1980, month=1, day=1))
+        next_wake = our_tz.localize(datetime.datetime(year=1980, month=1, day=1))
 
     # Load tides
     tides_node = metadata.find('./server/tides')
     if not tides_node:
         logging.info("Creating new tides node")
-        tides_node = ET.SubElement(server_node, "tides")
+        tides_node = etree.SubElement(server_node, "tides")
 
     loaded_tides = []
     for node in metadata.findall('./server/tides/tide'):
@@ -225,13 +230,12 @@ if __name__ == "__main__":
         logging.debug("Loading stored %s", t)
 
     # Pull the last battery for putting in the display
-    last_log_node = metadata.findall('./client/log[last()]')
+    last_log_node = metadata.find('./client/log[last()]')
     battery = 0
-    if len(last_log_node) == 1:
-        try:
-            battery = int(last_log_node[0].attrib["battery"])
-        except KeyError:
-            pass
+    try:
+        battery = int(last_log_node.attrib["battery"])
+    except AttributeError:
+        logging.info("No last battery information to display")
 
     # Is new data needed yet? (or forced)
     if args.force or current_local >= (next_wake - SLACK):
@@ -278,12 +282,14 @@ if __name__ == "__main__":
                                                      datetime.time(hour=1, minute=15))
         wake_up_time_gmt = gmt.localize(wake_up_time_gmt)
 
+        weather = None
         try:
             weather = Weather(config.get("Weather", "ApiKey"))
             weather.fetch_land_observ(config.get("Weather", "LandLocation"))
             weather.fetch_sea_observ(config.get("Weather", "SeaLocation"))
             logging.info("Loaded weather")
         except configparser.NoOptionError as e:
+            logging.warning("No weather configured")
             weather = None
         except Exception as e:
             logging.exception("Failed to fetch weather information")
@@ -293,10 +299,10 @@ if __name__ == "__main__":
             # Otherwise wakeup when we need to change the clock
             wake_up_time_gmt = future_tides[0].time  # GMT! not astimezone(london)
             d = DisplayRenderer(future_tides[0], future_tides[1],
-                                battery=battery, location=location, weather=weather, tz=london)
+                                battery=battery, location=location, weather=weather, tz=our_tz)
         elif len(future_tides) == 1:
             d = DisplayRenderer(future_tides[0],
-                                battery=battery, location=location, weather=weather, tz=london)
+                                battery=battery, location=location, weather=weather, tz=our_tz)
             wake_up_time_gmt = future_tides[0].time  # GMT! not astimezone(london)
         else:
             # For the sake of something to show we show this morning's, as next morning
@@ -322,11 +328,11 @@ if __name__ == "__main__":
 
         if client_node:
             if not metadata.findall("./client/requested[@time='%s']" % wut):
-                wakeup_log = ET.SubElement(client_node, "requested")  # as in when the client should have come in
+                wakeup_log = etree.SubElement(client_node, "requested")  # as in when the client should have come in
                 wakeup_log.attrib["time"] = wut
 
         logging.info("Writing back metadata XML")
-        metadata.write(server_metadata_path, xml_declaration=True)
+        metadata.write(server_metadata_path, xml_declaration=True, encoding="utf-8")
 
         logging.info("Next client wakeup requested %s", wake_up_time_gmt)
 
@@ -355,10 +361,19 @@ if __name__ == "__main__":
     # Now generate the status page anyway because the client could have connected
     png_create_time = None
     try:
-        png_create_time = datetime.datetime.fromtimestamp(os.path.getmtime(output_png_path))
+        log_time = png_create_time = datetime.datetime.fromtimestamp(os.path.getmtime(output_png_path))
         status_create_time = datetime.datetime.fromtimestamp(os.path.getmtime(server_status_path))
-        if status_create_time < png_create_time:
+        if last_log_node is not None:
+            log_time = datetime.datetime.strptime(last_log_node.attrib["time"], "%Y-%m-%dT%H:%M:%S")
+            logging.info("Last client login was " + str(log_time))
+        else:
+            logging.info("No beacon yet")
+        logging.info("Last PNG change was " + str(png_create_time))
+        logging.info("Last status page update was " + str(status_create_time))
+        if status_create_time < png_create_time or \
+                status_create_time < log_time:
             logging.info("Generating new status page")
             generate_status_page(metadata, wake_up_time_gmt, server_status_path, png_create_time)
+            logging.info("All done")
     except OSError:
-        logging.exception("Cannot generate status page, no PNG to check")
+        logging.exception("Cannot generate status page, no PNG to check")#

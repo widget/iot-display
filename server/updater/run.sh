@@ -1,10 +1,12 @@
 #!/bin/bash
 #
 # Crude script to make our python script a regular event
+#
+# TODO have the python script just sleep itself, would be more reliable
 
 control_c()
 {
-  kill -SIGINT $(jobs -p) # kill the sleep
+  kill -s SIGINT $(jobs -p) # kill the sleep
   exit #$
 }
 

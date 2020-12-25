@@ -1,5 +1,5 @@
 
-import xml.etree.ElementTree as ET
+from lxml import etree
 
 
 class Tide(object):
@@ -9,7 +9,7 @@ class Tide(object):
         self.height = height
 
     def to_xml(self):
-        top = ET.Element("tide")
+        top = etree.Element("tide")
         # Discarding TZ info on save as strptime imports tz in a different format
         top.attrib["time"] = self.time.strftime("%Y-%m-%dT%H:%M:%S")
         top.attrib["type"] = self.type
