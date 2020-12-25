@@ -1,4 +1,4 @@
-FROM python:3.6-slim-buster as base
+FROM python:3.8-slim-buster as base
 
 FROM base as builder
 

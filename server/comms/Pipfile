@@ -8,8 +8,7 @@ verify_ssl = true
 [packages]
 Flask = "~=1.1"
 lxml = "~=4.2"
-pytz = "*"
 tzlocal = "*"
 
 [requires]
-python_version = "3.6"
+python_version = "3.8"
