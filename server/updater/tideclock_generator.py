@@ -212,7 +212,7 @@ if __name__ == "__main__":
 
     # Filter tides
     if not args.time:
-        current_local = datetime.datetime.now()
+        current_local = datetime.datetime.now().replace(tzinfo=our_tz)
     else:
         try:
             current_local = datetime.datetime.strptime(args.time, "%Y-%m-%d %H:%M")
@@ -220,13 +220,12 @@ if __name__ == "__main__":
             current_local = datetime.datetime.strptime(args.time, "%H:%M")
             current_local = datetime.datetime.combine(
                 datetime.date.today(), current_local.time()
-            )
+            ).replace(tzinfo=our_tz)
             logging.info("Hard-coding time to %s", current_local)
 
-    current_local = our_tz.localize(current_local)
-    day_start = our_tz.localize(
-        datetime.datetime.combine(current_local.today(), datetime.time(0))
-    )
+    day_start = datetime.datetime.combine(
+        current_local.today(), datetime.time(0)
+    ).replace(tzinfo=our_tz)
 
     metadata = etree.ElementTree(etree.Element("display"))
     if os.path.exists(server_metadata_path):
@@ -258,7 +257,7 @@ if __name__ == "__main__":
 
     if not next_wake:
         logging.info("Using default wake time")
-        next_wake = our_tz.localize(datetime.datetime(year=1980, month=1, day=1))
+        next_wake = datetime.datetime(year=1980, month=1, day=1, tzinfo=our_tz)
 
     # Load tides
     tides_node = metadata.find("./server/tides")

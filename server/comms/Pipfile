@@ -4,10 +4,11 @@ url = "https://pypi.org/simple"
 verify_ssl = true
 
 [dev-packages]
+pip = "*"
 
 [packages]
 Flask = "~=1.1"
-lxml = "~=4.2"
+lxml = "~=4.6"
 tzlocal = "*"
 
 [requires]
