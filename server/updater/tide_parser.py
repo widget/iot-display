@@ -5,6 +5,8 @@ from tempfile import NamedTemporaryFile
 
 import pytz
 import requests
+from tzlocal import get_localzone
+
 from tide import Tide
 
 
@@ -28,6 +30,7 @@ class TideParser(object):
 
     def fetch(self, debug=False):
         gmt = pytz.timezone("GMT")
+        our_tz = get_localzone()
         sess = requests.Session()
         # admiralty.co.uk sucks and doesn't send ANY SSL chain at all, which is against spec
         # Instead I've manually scraped the SSL chain to verify against.
@@ -41,7 +44,7 @@ class TideParser(object):
 
             raw_tides = rsp.json()["tidalEventList"]
             ret = []
-            now = datetime.datetime.now()
+            now = datetime.datetime.now().replace(tzinfo=our_tz)
             for t in raw_tides:
                 tide_type = "HIGH" if t["eventType"] == 0 else "LOW"
                 when = datetime.datetime.fromisoformat(t["dateTime"]).replace(
