@@ -16,6 +16,7 @@ RUN echo "Europe/London" > /etc/timezone
 
 COPY ./fonts /root/fonts
 COPY ./*.py /root/
+COPY admiralty.pem /root/
 COPY ./run.sh /root/
 WORKDIR /root
 
