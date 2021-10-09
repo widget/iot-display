@@ -1,17 +1,16 @@
 import datetime
+import logging
 
 from tempfile import NamedTemporaryFile
 
 import pytz
-from bs4 import BeautifulSoup
 import requests
 from tide import Tide
 
 
 class TideParser(object):
     """
-    Parses the UKHO RSS feed to something less crap.  BeautifulSoup4 is depending on
-    LXML as RSS is XML, but the HTML in the RSS needs extracting.
+    Parses the UKHO print feed JSON endpoint.  This will probably break.
 
     No errors are handled yet, Requests could return ConnectionError or Timeout
 
@@ -21,20 +20,18 @@ class TideParser(object):
 
     def __init__(self, location_id):
 
-        self.url = "http://www.ukho.gov.uk/easytide/EasyTide/ShowPrediction.aspx"
+        self.url = "https://easytide.admiralty.co.uk/Home/GetPredictionData"
 
         self.params = {
-            "PortID": location_id,
-            "PredictionLength": "3",
-            "DaylightSavingOffset": "0",
-            "PrinterFriendly": "true",
-            "HeightUnits": "0",
-            "GraphSize": "10",
+            "stationId": location_id,
         }
 
     def fetch(self, debug=False):
+        gmt = pytz.timezone("GMT")
         sess = requests.Session()
-        rsp = sess.get(self.url, params=self.params)
+        # admiralty.co.uk sucks and doesn't send ANY SSL chain at all, which is against spec
+        # Instead I've manually scraped the SSL chain to verify against.
+        rsp = sess.get(self.url, params=self.params, verify="admiralty.pem")
 
         if rsp.status_code == requests.codes.ok:
             if debug:
@@ -42,54 +39,18 @@ class TideParser(object):
                     tmp.write(rsp.content)
                     print("Content written to " + tmp.name)
 
-            feed_doc = BeautifulSoup(rsp.content, "lxml")
-
-            table_list = feed_doc.find_all("table", "HWLWTable")
-            year = datetime.datetime.now().year
-            SILLY_FORMAT = "%Y, %a %d %b %H:%M"
-
-            # end of year prediction code
-            current_month = datetime.datetime.now().month
-            # do this on first in new year, when we've started in december
-            first_in_next_year = False
-
+            raw_tides = rsp.json()["tidalEventList"]
             ret = []
+            now = datetime.datetime.now()
+            for t in raw_tides:
+                tide_type = "HIGH" if t["eventType"] == 0 else "LOW"
+                when = datetime.datetime.fromisoformat(t["dateTime"]).replace(
+                    tzinfo=gmt
+                )
+                if when > now:
+                    ret.append(Tide(when, tide_type, t["height"]))
 
-            for table in table_list:
-                table_date = table.find("th", "HWLWTableHeaderCell").text
-                tide_types = [
-                    x.text.strip()
-                    for x in table.find_all("th", "HWLWTableHWLWCellPrintFriendly")
-                ]
-                times_heights = [x.text.strip() for x in table.find_all("td")]
-
-                midlen = len(times_heights) >> 1
-                tide_times = times_heights[0:midlen]
-                heights = [float(h[:-2]) for h in times_heights[midlen:]]
-                types = ["Low" if x == "LW" else "High" for x in tide_types]
-                times = []
-                for time in tide_times:
-                    if (
-                        "1 Jan" in table_date
-                        and current_month == 12
-                        and not first_in_next_year
-                    ):
-                        # As there's no year information we have to bump forward
-                        year += 1
-                        first_in_next_year = True
-                    times.append(
-                        datetime.datetime.strptime(
-                            str(year) + ", " + table_date + " " + time, SILLY_FORMAT
-                        )
-                    )
-
-                # Set to GMT, although when it's saved out, this is lost
-                gmt = pytz.timezone("GMT")
-                times = [gmt.localize(t) for t in times]
-
-                for tide_tuple in zip(times, types, heights):
-                    ret.append(Tide(*tide_tuple))
-
+            logging.info("Fetched %d tides", len(ret))
             return ret
 
         else:
