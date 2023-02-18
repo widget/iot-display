@@ -8,7 +8,7 @@ verify_ssl = true
 [packages]
 beautifulsoup4 = "~=4.6"
 bitstring = "~=3.1"
-lxml = "~=4.6"
+lxml = "~=4.9"
 pyephem = "~=3.7"
 pytz = "*"
 requests = "~=2.19"
