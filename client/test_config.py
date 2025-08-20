@@ -32,4 +32,6 @@ Up: upload.php
             self.assertEqual(cfg.port, 80)
             self.assertEqual(cfg.metadata_path, "metadata.json")
             self.assertEqual(cfg.upload_path, "upload.php")
-            self.assertDictEqual(cfg.wifi, {"MySSID": "ssshItsSecret", "Another": "different_secret"})
+            self.assertDictEqual(
+                cfg.wifi, {"MySSID": "ssshItsSecret", "Another": "different_secret"}
+            )

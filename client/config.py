@@ -1,4 +1,3 @@
-
 import os
 
 
@@ -7,6 +6,7 @@ class Config(object):
     Simple tuple for holding configuration data - also a namespace
     for mounting the SD and loading the data off it
     """
+
     FLASH_CONFIG_PATH = "/flash/data/config.txt"
     SD_CONFIG_PATH = "/sd/config.txt"
 
@@ -27,21 +27,22 @@ class Config(object):
         :return: Config object
         """
         from machine import SD
+
         cfg = None
         try:
             unmount = False
             if sd is None:
                 sd = SD()
-                os.mount(sd, '/sd')
+                os.mount(sd, "/sd")
                 unmount = True
 
-            cfg = Config.load_file(open(Config.SD_CONFIG_PATH,"r"), debug)
+            cfg = Config.load_file(open(Config.SD_CONFIG_PATH, "r"), debug)
 
             if unmount:
                 try:
-                    os.unmount('/sd') # got renamed in upy 1.9
+                    os.unmount("/sd")  # got renamed in upy 1.9
                 except AttributeError:
-                    os.umount('/sd')
+                    os.umount("/sd")
                 sd.deinit()
                 del sd
         except OSError:

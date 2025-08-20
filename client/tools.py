@@ -1,4 +1,3 @@
-
 from machine import SD
 import os
 
@@ -14,7 +13,7 @@ def save_config(cfg):
     :return: None
     """
     sd = SD()
-    os.mount(sd, '/sd')
+    os.mount(sd, "/sd")
 
     with open("/sd/config.txt", "w") as cfgfile:
         cfgfile.write("Host:%s\n", cfg.host)
@@ -34,37 +33,39 @@ def load_file(path):
         return f.read()
 
 
-def print_log(path='/sd/display.log'):
+def print_log(path="/sd/display.log"):
     sd = SD()
-    os.mount(sd, '/sd')
+    os.mount(sd, "/sd")
 
-    with open(path, 'r') as logfile:
+    with open(path, "r") as logfile:
         for line in logfile:
-            print(line, end='')
+            print(line, end="")
 
-    os.unmount('/sd')
+    os.unmount("/sd")
     sd.deinit()
 
 
 def connect_wifi(cfg=None):
     if not cfg:
         from config import Config
+
         cfg = Config.load(debug=True)
 
     from network import WLAN
     import machine
 
-    print('Starting WLAN, attempting to connect to ' + cfg.wifi_ssid)
+    print("Starting WLAN, attempting to connect to " + cfg.wifi_ssid)
     wlan = WLAN(0, WLAN.STA)
-    wlan.ifconfig(config='dhcp')
+    wlan.ifconfig(config="dhcp")
     wlan.connect(ssid=cfg.wifi_ssid, auth=(WLAN.WPA2, cfg.wifi_key))
     while not wlan.isconnected():
         machine.idle()
-    print('Connected')
+    print("Connected")
 
 
 def lo_power():
     from machine import Pin, deepsleep
+
     for pin in dir(Pin.board):
         p = Pin(pin)
         p.init(Pin.IN, pull=Pin.PULL_DOWN, alt=-1)

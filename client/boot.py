@@ -5,4 +5,4 @@ from os import dupterm
 
 uart = UART(0, 115200)
 dupterm(uart)
-print('UART up')
+print("UART up")

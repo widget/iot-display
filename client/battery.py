@@ -1,4 +1,3 @@
-
 """
 File for Battery class
 """
@@ -13,13 +12,14 @@ class Battery(object):
     It is 12bit (0-4095)
     It is measuring off a 56k/(56k+115k) voltage divider - 0.32
     """
-    MINIMUM = 3180 # 3.64V measured
-    CHARGED = 3600 # Using 4.15V
-    RANGE = (CHARGED - MINIMUM)
+
+    MINIMUM = 3180  # 3.64V measured
+    CHARGED = 3600  # Using 4.15V
+    RANGE = CHARGED - MINIMUM
 
     def __init__(self):
         self.adc = ADC()
-        self.battery_raw = self.adc.channel(pin='GP3')
+        self.battery_raw = self.adc.channel(pin="GP3")
 
     def __del__(self):
         self.battery_raw.deinit()

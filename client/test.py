@@ -1,4 +1,3 @@
-
 import time
 from epd import EPD
 from connect import Connect
@@ -17,7 +16,7 @@ def update_loop(url, interval=0, port=80):
     """
     e = EPD()
     e.enable()
-    sep = url.find('/')
+    sep = url.find("/")
     host = url[:sep]
     path = url[sep:]
 
@@ -29,7 +28,7 @@ def update_loop(url, interval=0, port=80):
 
         content = c.get_quick(path)
 
-        print("Uploading...", end='')
+        print("Uploading...", end="")
         e.upload_whole_image(content)
 
         print("done.")
@@ -39,9 +38,9 @@ def update_loop(url, interval=0, port=80):
 
         if interval > 0:
             to_sleep = interval
-            print("Sleeping for %ds" % interval, end='')
+            print("Sleeping for %ds" % interval, end="")
             time.sleep(to_sleep)
-            print('.')
+            print(".")
         else:
             input("Press enter to update (Ctrl-C to stop).")
 

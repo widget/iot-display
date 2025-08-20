@@ -1,4 +1,3 @@
-
 import re
 import socket
 import gc
@@ -28,12 +27,33 @@ User-Agent: Widget-IoTDisplay/1.0\r
         :param date_str: Of the form  "Sun, 31 Jan 2016 14:16:24 GMT"
         :return: tuple (2016,1,31,14,16,24)
         """
-        MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-        date = re.compile(r'(\d+) (\w+) (\d+) (\d+):(\d+):(\d+)', )
+        MONTHS = [
+            "Jan",
+            "Feb",
+            "Mar",
+            "Apr",
+            "May",
+            "Jun",
+            "Jul",
+            "Aug",
+            "Sep",
+            "Oct",
+            "Nov",
+            "Dec",
+        ]
+        date = re.compile(
+            r"(\d+) (\w+) (\d+) (\d+):(\d+):(\d+)",
+        )
         res = date.search(date_str)
         month = MONTHS.index(res.group(2))
-        return int(res.group(3)), month+1, int(res.group(1)), \
-               int(res.group(4)), int(res.group(5)), int(res.group(6))
+        return (
+            int(res.group(3)),
+            month + 1,
+            int(res.group(1)),
+            int(res.group(4)),
+            int(res.group(5)),
+            int(res.group(6)),
+        )
 
     def post(self, path, **kwargs):
 
@@ -44,7 +64,10 @@ User-Agent: Widget-IoTDisplay/1.0\r
         content = "&".join(content_dict)
 
         req = Connect.REQ.format(host=self.host, path=path, method="POST")
-        req += 'Content-Type: application/x-www-form-urlencoded\r\nContent-Length: %d\r\n\r\n' % len(content)
+        req += (
+            "Content-Type: application/x-www-form-urlencoded\r\nContent-Length: %d\r\n\r\n"
+            % len(content)
+        )
 
         if self.debug:
             print(req)
@@ -64,7 +87,7 @@ User-Agent: Widget-IoTDisplay/1.0\r
 
         self._close_keep_alive()
 
-    def get_quick(self, path, path_type='octet-stream', max_length=16384):
+    def get_quick(self, path, path_type="octet-stream", max_length=16384):
         """
         HTTP request, like normal things.  Sets the date in last_fetch_time.  Will attempt
         to keep-alive.
@@ -79,14 +102,14 @@ User-Agent: Widget-IoTDisplay/1.0\r
         gc.collect()
 
         # Keep getting until we've got what we were promised
-        content = b''
+        content = b""
         while len(content) < length:
             content += self.socket.recv(length - len(content))
 
         self._close_keep_alive()
         return content
 
-    def get_object(self, path, path_type='octet-stream', max_length=16384):
+    def get_object(self, path, path_type="octet-stream", max_length=16384):
         """
         HTTP request for big things.  Sets the date in last_fetch_time.  Will attempt
         to keep-alive.  Returns the socket (file like object) for things to sip
@@ -107,8 +130,8 @@ User-Agent: Widget-IoTDisplay/1.0\r
         self._close_keep_alive()
 
     def _do_get(self, max_length, path, path_type):
-        req = Connect.REQ.format(host=self.host, path=path, method='GET')
-        req += 'Accept-Encoding: identity\r\n\r\n'
+        req = Connect.REQ.format(host=self.host, path=path, method="GET")
+        req += "Accept-Encoding: identity\r\n\r\n"
         req = req.encode()
         try:
             self.socket.send(req)
@@ -147,7 +170,7 @@ User-Agent: Widget-IoTDisplay/1.0\r
             raise RuntimeError("Couldn't connect to server")
 
         if self.debug:
-            print(header_line, end='')  # EOL in string already\
+            print(header_line, end="")  # EOL in string already\
 
         # First line better be "HTTP/1.0 200 OK"
         if "200 OK" not in header_line:
@@ -161,7 +184,7 @@ User-Agent: Widget-IoTDisplay/1.0\r
             # how much data is coming, and its type
             header_line = self.socket.readline().decode()
 
-            arg = header_line.split(':')[-1].strip()
+            arg = header_line.split(":")[-1].strip()
             if "date" in header_line.lower():
                 # Grab time and keep it but we check the whole line with a regex
                 self.last_fetch_time = Connect.simple_strptime(header_line)
@@ -170,13 +193,13 @@ User-Agent: Widget-IoTDisplay/1.0\r
                 length = int(arg)
             elif "content-type" in header_line.lower():
                 content_type = arg
-            elif header_line == '\r\n':
+            elif header_line == "\r\n":
                 # No more headers
                 in_headers = False
             elif "keep-alive" in header_line.lower():
                 self.keep_alive = True
 
             if self.debug and in_headers:
-                print(header_line, end='')  # EOL in string already
+                print(header_line, end="")  # EOL in string already
 
         return content_type, header_line, in_headers, length

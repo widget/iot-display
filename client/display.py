@@ -6,6 +6,7 @@ from connect import Connect
 from epd import EPD
 from machine import RTC, Pin, WDT, idle, deepsleep, DEEPSLEEP
 from os import mount
+
 try:
     from os import unmount
 except ImportError:
@@ -35,7 +36,7 @@ from wipy import heartbeat
 
 
 class Display(object):
-    IMG_DIR = '/flash/imgs'
+    IMG_DIR = "/flash/imgs"
 
     def __init__(self, debug=False):
         self.cfg = None
@@ -55,9 +56,10 @@ class Display(object):
             self.sd = None
         else:
             from machine import SD
+
             try:
                 self.sd = SD()
-                mount(self.sd, '/sd')
+                mount(self.sd, "/sd")
                 self.logfile = open("/sd/display.log", "a")
             except OSError:
                 self.sd = None
@@ -70,7 +72,7 @@ class Display(object):
         # Don't flash when we're awake outside of debug
         heartbeat(self.debug)
 
-    def log(self, msg, end='\n'):
+    def log(self, msg, end="\n"):
         time = "%d, %d, %d, %d, %d, %d" % self.rtc.now()[:-2]
         msg = time + ", " + msg
         if self.logfile:
@@ -87,28 +89,34 @@ class Display(object):
         if not self.cfg:
             raise ValueError("Can't initialise wifi, no config")
 
-        self.log('Starting WLAN, attempting to connect to ' + ','.join(self.cfg.wifi.keys()))
+        self.log(
+            "Starting WLAN, attempting to connect to " + ",".join(self.cfg.wifi.keys())
+        )
         wlan = WLAN(0, WLAN.STA)
-        wlan.ifconfig(config='dhcp')
+        wlan.ifconfig(config="dhcp")
         while not wlan.isconnected():
             nets = wlan.scan()
             for network in nets:
                 if network.ssid in self.cfg.wifi.keys():
-                    self.log('Connecting to ' + network.ssid)
-                    self.feed_wdt() # just in case
-                    wlan.connect(ssid=network.ssid, auth=(network.sec, self.cfg.wifi[network.ssid]))
+                    self.log("Connecting to " + network.ssid)
+                    self.feed_wdt()  # just in case
+                    wlan.connect(
+                        ssid=network.ssid,
+                        auth=(network.sec, self.cfg.wifi[network.ssid]),
+                    )
                     while not wlan.isconnected():
                         idle()
                     break
 
-            self.feed_wdt() # just in case
+            self.feed_wdt()  # just in case
             sleep_ms(2000)
 
-        self.log('Connected as %s' % wlan.ifconfig()[0])
+        self.log("Connected as %s" % wlan.ifconfig()[0])
 
     @staticmethod
     def reset_cause():
         import machine
+
         val = machine.reset_cause()
         if val == machine.POWER_ON:
             return "power"
@@ -123,6 +131,7 @@ class Display(object):
 
     def set_alarm(self, now, json_metadata):
         import json
+
         json_dict = json.loads(json_metadata)
 
         # Now we know the time too
@@ -153,22 +162,22 @@ class Display(object):
 
     def display_no_config(self):
         self.log("Displaying no config msg")
-        with open(Display.IMG_DIR + '/no_config.bin', 'rb') as pic:
+        with open(Display.IMG_DIR + "/no_config.bin", "rb") as pic:
             self.display_file_image(pic)
 
     def display_low_battery(self):
         self.log("Displaying low battery msg")
-        with open(Display.IMG_DIR + '/low_battery.bin', 'rb') as pic:
+        with open(Display.IMG_DIR + "/low_battery.bin", "rb") as pic:
             self.display_file_image(pic)
 
     def display_cannot_connect(self):
         self.log("Displaying no server comms msg")
-        with open(Display.IMG_DIR + '/no_server.bin', 'rb') as pic:
+        with open(Display.IMG_DIR + "/no_server.bin", "rb") as pic:
             self.display_file_image(pic)
 
     def display_no_wifi(self):
         self.log("Displaying no wifi msg")
-        with open(Display.IMG_DIR + '/no_wifi.bin', 'rb') as pic:
+        with open(Display.IMG_DIR + "/no_wifi.bin", "rb") as pic:
             self.display_file_image(pic)
 
     def check_battery_level(self):
@@ -179,15 +188,23 @@ class Display(object):
             last_batt = now_batt
             self.feed_wdt()
             now_batt = self.battery.battery_raw()
-            self.log("Battery value: %d (%d)" % (self.battery.value(), self.battery.battery_raw()))
+            self.log(
+                "Battery value: %d (%d)"
+                % (self.battery.value(), self.battery.battery_raw())
+            )
 
         if not self.battery.safe():
-            self.log("Battery voltage (%d) low! Turning off" % self.battery.battery_raw())
+            self.log(
+                "Battery voltage (%d) low! Turning off" % self.battery.battery_raw()
+            )
             self.feed_wdt()
             self.display_low_battery()
             return False
         else:
-            self.log("Battery value: %d (%d)" % (self.battery.value(), self.battery.battery_raw()))
+            self.log(
+                "Battery value: %d (%d)"
+                % (self.battery.value(), self.battery.battery_raw())
+            )
         return True
 
     def run_deepsleep(self):
@@ -205,7 +222,7 @@ class Display(object):
         if self.sd:
             self.logfile.close()
             self.logfile = None
-            unmount('/sd')
+            unmount("/sd")
             self.sd.deinit()
 
         # Turn the screen off
@@ -250,7 +267,7 @@ class Display(object):
             try:
                 self.connect_wifi()
             except:
-                pass # everything
+                pass  # everything
 
             while True:
                 sleep_ms(10)
@@ -260,7 +277,7 @@ class Display(object):
 
         self.connect_wifi()
 
-        content = b''
+        content = b""
         try:
             self.log("Connecting to server %s:%d" % (self.cfg.host, self.cfg.port))
             c = Connect(self.cfg.host, self.cfg.port, debug=self.debug)
@@ -274,14 +291,18 @@ class Display(object):
             self.log("Reset cause: " + cause)
 
             if len(self.cfg.upload_path) > 0:
-                temp = self.epd.get_sensor_data() # we read this already
-                c.post(self.cfg.upload_path,
-                       battery=self.battery.value(),
-                       reset=cause,
-                       screen=temp)
+                temp = self.epd.get_sensor_data()  # we read this already
+                c.post(
+                    self.cfg.upload_path,
+                    battery=self.battery.value(),
+                    reset=cause,
+                    screen=temp,
+                )
 
             self.log("Fetching metadata from " + self.cfg.metadata_path)
-            metadata = c.get_quick(self.cfg.metadata_path, max_length=1024, path_type='json')
+            metadata = c.get_quick(
+                self.cfg.metadata_path, max_length=1024, path_type="json"
+            )
 
             # This will set the time to GMT, not localtime
             self.set_alarm(c.last_fetch_time, metadata)
@@ -306,11 +327,11 @@ class Display(object):
             self.rtc.alarm(time=3600000)
             return True
 
-        sleep_ms(1000) # How do we make the write to display more reliable?
+        sleep_ms(1000)  # How do we make the write to display more reliable?
         self.feed_wdt()
         self.log("Uploading to display")
         self.display_file_image(socket)
-        c.get_object_done() # close off socket
+        c.get_object_done()  # close off socket
 
         if self.cfg.src == "sd":
             # If we've got a working config from SD instead of flash
