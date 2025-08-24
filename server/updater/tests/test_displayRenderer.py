@@ -2,7 +2,6 @@ import datetime
 from unittest import TestCase
 
 import pytz
-
 from display_renderer import DisplayRenderer
 from tide import Tide
 

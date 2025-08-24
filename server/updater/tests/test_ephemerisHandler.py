@@ -1,6 +1,6 @@
+from datetime import date, datetime, timedelta
 from unittest import TestCase
 
-from datetime import date, datetime, timedelta
 import pytz
 from ephem_tools import EphemerisHandler
 

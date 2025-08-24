@@ -2,7 +2,6 @@
 .idea
 *.svg
 *.json
-server-venv
 *.pdf
 *.xcf
 *.jpg

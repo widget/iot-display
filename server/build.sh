@@ -1,9 +1,9 @@
-#!/bin/bash
+#!/bin/bash -eu
 
 pushd comms
-pipenv lock -r >requirements.txt
+pipenv requirements >requirements.txt
 popd
 pushd updater
-pipenv lock -r >requirements.txt
+pipenv requirements >requirements.txt
 popd
-docker-compose build
+docker compose build
