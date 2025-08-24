@@ -4,10 +4,10 @@ Class for managing EPD files and also generates them on the cmdline
 
 import glob
 import os
+import struct
 
 from bitstring import BitStream
 from PIL import Image
-import struct
 
 
 class EPDGenerator(object):

@@ -1,12 +1,10 @@
-from typing import Optional
 import warnings
+from typing import Optional
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
+
 import requests
 from lxml import etree
-import warnings
-
-warnings.simplefilter(action="ignore", category=FutureWarning)
 
 
 class Weather(object):

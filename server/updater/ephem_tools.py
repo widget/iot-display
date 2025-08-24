@@ -1,5 +1,6 @@
-from math import radians as rad
 from datetime import date
+from math import radians as rad
+
 import ephem
 import pytz
 

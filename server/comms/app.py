@@ -1,8 +1,9 @@
-from flask import Flask, request, abort
-from lxml import etree
-from tzlocal import get_localzone
 from datetime import datetime
 from logging.config import dictConfig
+
+from flask import Flask, abort, request
+from lxml import etree
+from tzlocal import get_localzone
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 dictConfig(
