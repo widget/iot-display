@@ -7,18 +7,19 @@ import json
 import logging
 import os.path
 import sys
-from lxml import etree
-from typing import TextIO, Optional
+from typing import Optional, TextIO
 
 import pygal
 import pytz
-from tzlocal import get_localzone
-from pygal.style import LightColorizedStyle
-
 from display_renderer import DisplayRenderer
 from epd_generator import EPDGenerator
+from lxml import etree
+from pygal.style import LightColorizedStyle
 from tide import Tide
 from tide_parser import TideParser
+
+# MUST BE TZLOCAL 4.x!
+from tzlocal import get_localzone
 from weather import Weather
 
 
@@ -398,7 +399,12 @@ if __name__ == "__main__":
                 wakeup_log.attrib["time"] = wut
 
         logging.info("Writing back metadata XML")
-        metadata.write(server_metadata_path, xml_declaration=True, encoding="utf-8")
+        metadata.write(
+            server_metadata_path,
+            xml_declaration=True,
+            encoding="utf-8",
+            pretty_print=True,
+        )
 
         logging.info("Next client wakeup requested %s", wake_up_time_gmt)
 
@@ -431,7 +437,7 @@ if __name__ == "__main__":
             os.path.getmtime(output_png_path)
         )
         status_create_time = datetime.datetime.fromtimestamp(
-            os.path.getmtime(server_status_path)
+            os.path.getmtime(server_status_path)  # TODO fails if it doesn't exist
         )
         if last_log_node is not None:
             log_time = datetime.datetime.strptime(

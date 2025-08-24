@@ -1,9 +1,9 @@
 import math
-from PIL import Image, ImageDraw, ImageFont
+from datetime import datetime, timedelta
 
 from epd_generator import EPDGenerator
-from datetime import datetime, timedelta
 from ephem_tools import EphemerisHandler
+from PIL import Image, ImageDraw, ImageFont
 
 
 class DisplayRenderer(object):
@@ -105,9 +105,9 @@ class DisplayRenderer(object):
 
         # Date this ran on
         msg = "%s" % datetime.now().strftime("%a, %d %b %Y")
-        size = self.draw.textsize(msg, font=self.small_font)
+        size = self.small_font.getbbox(msg)
         self.draw.text(
-            (DisplayRenderer.RES[0] - (8 + size[0]), 280), msg, font=self.small_font
+            (DisplayRenderer.RES[0] - (8 + size[2]), 280), msg, font=self.small_font
         )
 
         if self.weather:
@@ -195,9 +195,9 @@ class DisplayRenderer(object):
         self.draw_centre_text(centre, speed, font=self.small_font)
 
     def draw_centre_text(self, xy, msg, font, fill=0):
-        width = self.draw.textsize(msg, font=font)
+        width = font.getbbox(msg)
         self.draw.text(
-            (xy[0] - (width[0] / 2), xy[1] - (width[1] / 2)), msg, font=font, fill=fill
+            (xy[0] - (width[2] / 2), xy[1] - (width[3] / 2)), msg, font=font, fill=fill
         )
 
     @staticmethod

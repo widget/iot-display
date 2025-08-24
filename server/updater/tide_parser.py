@@ -1,13 +1,11 @@
 import datetime
 import logging
-
 from tempfile import NamedTemporaryFile
 
 import pytz
 import requests
-from tzlocal import get_localzone
-
 from tide import Tide
+from tzlocal import get_localzone
 
 
 class TideParser(object):
@@ -17,6 +15,8 @@ class TideParser(object):
     No errors are handled yet, Requests could return ConnectionError or Timeout
 
     Location ID is pulled manually from the EasyTide system
+
+    TODO use https://github.com/ianByrne/PyPI-ukhotides
 
     """
 
@@ -32,9 +32,8 @@ class TideParser(object):
         gmt = pytz.timezone("GMT")
         our_tz = get_localzone()
         sess = requests.Session()
-        # admiralty.co.uk sucks and doesn't send ANY SSL chain at all, which is against spec
-        # Instead I've manually scraped the SSL chain to verify against.
-        rsp = sess.get(self.url, params=self.params, verify="admiralty.pem")
+
+        rsp = sess.get(self.url, params=self.params)
 
         if rsp.status_code == requests.codes.ok:
             if debug:

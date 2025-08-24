@@ -7,14 +7,14 @@ verify_ssl = true
 pip = "*"
 
 [packages]
-bitstring = "~=3.1"
-lxml = "~=4.6"
-pyephem = "~=3.7"
-pytz = "*"
-requests = "~=2.19"
-pygal = "~=2.4"
+bitstring = "*"
+lxml = "*"
+pyephem = "*"
+requests = "*"
+pygal = "*"
 Pillow = "*"
-tzlocal = "~=2.1"
+pytz = "*"
+tzlocal = "<5"
 
 [requires]
-python_version = "3.8"
+python_version = "3.13"
